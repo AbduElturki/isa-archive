@@ -1,6 +1,7 @@
 import os
 import logging
 import pathlib
+from typing import Optional
 from ..compiler.loader import Registry
 from ..compiler.behavior import BehaviorIR
 from ..compiler.backends import QemuCBackend, QemuTCGBackend
@@ -295,7 +296,8 @@ def generate_qemu_isa(registry: Registry, output_dir: str, clang_format: bool = 
     logger.info(f"Generated QEMU ISA artifacts in {output_dir}")
 
 
-def generate_qemu(registry: Registry, output_dir: str, clang_format: bool = False):
+def generate_qemu(registry: Registry, output_dir: str, clang_format: bool = False,
+                  components: Optional[set] = None):
     """Generate complete QEMU target: ISA semantics + QOM boilerplate + machine + build system.
 
     Output mirrors the QEMU source tree so files can be dropped in directly:
@@ -304,7 +306,13 @@ def generate_qemu(registry: Registry, output_dir: str, clang_format: bool = Fals
       configs/        → $QEMU/configs/
       patch_qemu.sh   → run once to apply minor QEMU source patches
       INTEGRATE.md    → integration instructions
+
+    ``components`` (None = everything) selects a subset for the sub-targets:
+      "isa"     → target/{isa}/ (semantics + QOM)
+      "machine" → hw/{isa}/ + configs/
+      "build"   → patch_qemu.sh + INTEGRATE.md
     """
+    want = (lambda g: True) if components is None else (lambda g: g in components)
     env = _make_qemu_env()
 
     for isa_reg in registry.isas.values():
@@ -355,39 +363,40 @@ def generate_qemu(registry: Registry, output_dir: str, clang_format: bool = Fals
         # Ship a clang-format config so adopted code formats to QEMU house style.
         write_generated(root / ".clang-format", CLANG_FORMAT_QEMU)
 
-        # target/{isa}/ — ISA semantics + QOM boilerplate
-        target_dir = root / "target" / isa
-        target_dir.mkdir(parents=True, exist_ok=True)
-        _write_isa_files(env, isa_reg, target_dir, clang_format=clang_format)
-
         def render_to(template_name: str, dest: pathlib.Path):
             content = env.get_template(template_name).render(**ctx)
             write_generated(dest, content, clang_format=clang_format)
 
-        render_to("qemu/qemu_cpu_h.j2",            target_dir / "cpu.h")
-        render_to("qemu/qemu_cpu_qom_h.j2",        target_dir / "cpu-qom.h")
-        render_to("qemu/qemu_cpu_param_h.j2",       target_dir / "cpu-param.h")
-        render_to("qemu/qemu_helper_wrapper_h.j2",  target_dir / "helper.h")
-        render_to("qemu/qemu_target_meson.j2",      target_dir / "meson.build")
-        render_to("qemu/qemu_target_kconfig.j2",    target_dir / "Kconfig")
+        if want("isa"):
+            # target/{isa}/ — ISA semantics + QOM boilerplate
+            target_dir = root / "target" / isa
+            target_dir.mkdir(parents=True, exist_ok=True)
+            _write_isa_files(env, isa_reg, target_dir, clang_format=clang_format)
+            render_to("qemu/qemu_cpu_h.j2",            target_dir / "cpu.h")
+            render_to("qemu/qemu_cpu_qom_h.j2",        target_dir / "cpu-qom.h")
+            render_to("qemu/qemu_cpu_param_h.j2",       target_dir / "cpu-param.h")
+            render_to("qemu/qemu_helper_wrapper_h.j2",  target_dir / "helper.h")
+            render_to("qemu/qemu_target_meson.j2",      target_dir / "meson.build")
+            render_to("qemu/qemu_target_kconfig.j2",    target_dir / "Kconfig")
 
-        # hw/{isa}/ — machine definition
-        hw_dir = root / "hw" / isa
-        hw_dir.mkdir(parents=True, exist_ok=True)
-        render_to("qemu/qemu_hw_virt_c.j2",  hw_dir / "virt.c")
-        render_to("qemu/qemu_hw_meson.j2",   hw_dir / "meson.build")
-        render_to("qemu/qemu_hw_kconfig.j2", hw_dir / "Kconfig")
+        if want("machine"):
+            # hw/{isa}/ — machine definition
+            hw_dir = root / "hw" / isa
+            hw_dir.mkdir(parents=True, exist_ok=True)
+            render_to("qemu/qemu_hw_virt_c.j2",  hw_dir / "virt.c")
+            render_to("qemu/qemu_hw_meson.j2",   hw_dir / "meson.build")
+            render_to("qemu/qemu_hw_kconfig.j2", hw_dir / "Kconfig")
+            # configs/ — build system configs
+            render_to("qemu/qemu_configs_target_mak.j2",
+                      root / "configs" / "targets" / f"{isa}-softmmu.mak")
+            render_to("qemu/qemu_configs_default_mak.j2",
+                      root / "configs" / "devices" / f"{isa}-softmmu" / "default.mak")
 
-        # configs/ — build system configs
-        render_to("qemu/qemu_configs_target_mak.j2",
-                  root / "configs" / "targets" / f"{isa}-softmmu.mak")
-        render_to("qemu/qemu_configs_default_mak.j2",
-                  root / "configs" / "devices" / f"{isa}-softmmu" / "default.mak")
+        if want("build"):
+            # Integration helpers at root
+            render_to("qemu/qemu_integrate_md.j2", root / "INTEGRATE.md")
+            patch_sh = root / "patch_qemu.sh"
+            render_to("qemu/qemu_patch_sh.j2", patch_sh)
+            patch_sh.chmod(patch_sh.stat().st_mode | 0o111)  # make executable
 
-        # Integration helpers at root
-        render_to("qemu/qemu_integrate_md.j2", root / "INTEGRATE.md")
-        patch_sh = root / "patch_qemu.sh"
-        render_to("qemu/qemu_patch_sh.j2", patch_sh)
-        patch_sh.chmod(patch_sh.stat().st_mode | 0o111)  # make executable
-
-    logger.info(f"Generated complete QEMU target in {output_dir}")
+    logger.info(f"Generated QEMU target ({output_dir})")

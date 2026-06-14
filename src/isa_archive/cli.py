@@ -4,15 +4,10 @@ from enum import Enum
 from typing import List
 
 import typer
+import yaml
 
-from .compiler.loader import load_directory, load_isa, load_uarch, Registry
-from .generators.sv import generate_verilog
-from .generators.llvm import generate_llvm
-from .generators.software import generate_software
-from .generators.docs import generate_docs
-from .generators.qemu import generate_qemu, generate_qemu_isa
-from .generators.assembler import generate_asm
-from .generators.cpp_isa import generate_cpp_isa
+from .compiler.loader import load_directory, load_isa, load_uarch, load_project, Registry
+from .generators import targets as _targets
 
 # Root logger handler — level is adjusted per command via _setup_logging
 _handler = logging.StreamHandler()
@@ -23,17 +18,10 @@ logging.getLogger().setLevel(logging.INFO)
 app = typer.Typer(help="ISA Archive: Modern ISA & Hardware Generator CLI")
 
 
-class Target(str, Enum):
-    verilog = "verilog"
-    llvm = "llvm"
-    c = "c"
-    rust = "rust"
-    docs = "docs"
-    qemu = "qemu"         # complete target: ISA + boilerplate + machine + build system
-    qemu_isa = "qemu-isa" # ISA semantics only (flat output)
-    asm = "asm"           # standalone assembler + linker script
-    cpp_isa = "cpp-isa"   # descriptive C++ ISA headers (enums + decode/metadata)
-    all = "all"
+# The `-t` choices mirror the shared target taxonomy (generators/targets.py),
+# including the parent/sub-target names, plus `all`.
+Target = Enum("Target", {n.replace("-", "_"): n for n in sorted(_targets.TARGET_NAMES)}
+              | {"all": "all"}, type=str)
 
 
 class DocFormat(str, Enum):
@@ -41,9 +29,6 @@ class DocFormat(str, Enum):
     html = "html"
     pdf = "pdf"
     all = "all"
-
-
-_ALL_TARGETS = [Target.verilog, Target.llvm, Target.c, Target.rust, Target.docs, Target.qemu_isa]
 
 
 def _setup_logging(verbose: bool, quiet: bool) -> None:
@@ -54,26 +39,25 @@ def _setup_logging(verbose: bool, quiet: bool) -> None:
         _handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
 
 
-def _run_target(t: Target, registry: Registry, output: str, doc_format: DocFormat,
-                strict: bool = False, fmt: bool = False) -> None:
-    if t == Target.verilog:
-        generate_verilog(registry, output, clang_format=fmt)
-    elif t == Target.llvm:
-        generate_llvm(registry, output, strict=strict, clang_format=fmt)
-    elif t == Target.c:
-        generate_software(registry, output, "c", clang_format=fmt)
-    elif t == Target.rust:
-        generate_software(registry, output, "rust", clang_format=fmt)
-    elif t == Target.docs:
-        generate_docs(registry, output, doc_format.value)
-    elif t == Target.qemu:
-        generate_qemu(registry, output, clang_format=fmt)
-    elif t == Target.qemu_isa:
-        generate_qemu_isa(registry, output, clang_format=fmt)
-    elif t == Target.asm:
-        generate_asm(registry, output)
-    elif t == Target.cpp_isa:
-        generate_cpp_isa(registry, output, clang_format=fmt)
+def _peek_kind(path: pathlib.Path) -> "str | None":
+    """Read just the first YAML document's `kind` (for detecting a Project file)."""
+    try:
+        with open(path) as f:
+            for doc in yaml.safe_load_all(f):
+                if doc:
+                    return doc.get("kind")
+    except Exception:
+        return None
+    return None
+
+
+def _validate_targets(project) -> None:
+    unknown = sorted({e.target for e in project.spec.generate} - _targets.TARGET_NAMES)
+    if unknown:
+        raise ValueError(
+            f"unknown target(s) in project: {', '.join(unknown)}. "
+            f"Known: {', '.join(sorted(_targets.TARGET_NAMES))}"
+        )
 
 
 @app.command()
@@ -88,7 +72,14 @@ def parse(
     try:
         p = pathlib.Path(path)
         registry = Registry()
-        if p.is_dir():
+        if p.is_file() and _peek_kind(p) == "Project":
+            registry, project, _, _ = load_project(path)
+            _validate_targets(project)
+            typer.echo(f"Validated project [{project.metadata.name}] ({path})")
+            for e in project.spec.generate:
+                typer.echo(f"  {e.target:<14} -> {e.output}"
+                           f"{'   on_exist=' + e.on_exist if e.on_exist != 'overwrite' else ''}")
+        elif p.is_dir():
             registry = load_directory(path)
         else:
             load_isa(path, registry)
@@ -153,9 +144,48 @@ def generate(
         # generate it too.)
         registry.isas = {n: r for n, r in registry.isas.items() if n in requested}
 
-        targets = _ALL_TARGETS if target == Target.all else [target]
-        for t in targets:
-            _run_target(t, registry, output, doc_format, strict=strict, fmt=fmt)
+        names = _targets.ALL_TARGETS if target == Target.all else [target.value]
+        for name in names:
+            _targets.run_target(name, registry, output, clang_format=fmt,
+                                 strict=strict, doc_format=doc_format.value)
+    except Exception as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def build(
+    project: str = typer.Argument(..., help="Path to a Project manifest"),
+    only: List[str] = typer.Option([], "--only", help="Only run these target names (repeatable or comma-separated)"),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable debug logging"),
+    quiet: bool = typer.Option(False, "--quiet", "-q", help="Suppress info output"),
+):
+    """Generate everything a Project manifest configures, into the paths it specifies."""
+    _setup_logging(verbose, quiet)
+    try:
+        registry, proj, project_dir, requested = load_project(project)
+        _validate_targets(proj)
+        # Emit only the explicitly-listed ISAs (not their extends: bases).
+        registry.isas = {n: r for n, r in registry.isas.items() if n in requested}
+
+        only_names = {n for item in only for n in item.split(",") if n}
+        for entry in proj.spec.generate:
+            if only_names and entry.target not in only_names:
+                continue
+            out = (project_dir / entry.output).resolve()
+            if out.exists() and any(out.iterdir()):
+                if entry.on_exist == "skip":
+                    typer.echo(f"  skip      {entry.target:<14} {entry.output} (exists)")
+                    continue
+                if entry.on_exist == "error":
+                    raise ValueError(
+                        f"output '{entry.output}' for target '{entry.target}' already "
+                        f"exists and on_exist is 'error'"
+                    )
+            _targets.run_target(entry.target, registry, str(out),
+                                clang_format=entry.clang_format, strict=entry.strict,
+                                doc_format=entry.format or "md")
+            typer.echo(f"  generated {entry.target:<14} {entry.output}")
     except Exception as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1)

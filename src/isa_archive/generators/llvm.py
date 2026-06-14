@@ -800,8 +800,13 @@ def _infer_const_strategy(roles: dict[str, str], instr_defs: list) -> str:
 
 
 def generate_llvm(registry: Registry, output_dir: str, strict: bool = False,
-                  clang_format: bool = False):
+                  clang_format: bool = False, components: Optional[set] = None):
     """Generate a complete LLVM backend for every ISA in the registry.
+
+    ``components`` (None = everything) selects a subset for the sub-targets:
+      "tablegen" → the *.td files
+      "backend"  → C++ backend + CMake + patch_llvm.sh + INTEGRATE.md
+      "mc"       → MCTargetDesc/ + TargetInfo/
 
     Output mirrors the LLVM source tree layout for easy drop-in:
       llvm/lib/Target/{ISA}/   → $LLVM_SRC/llvm/lib/Target/{ISA}/
@@ -811,6 +816,7 @@ def generate_llvm(registry: Registry, output_dir: str, strict: bool = False,
     When ``strict`` is True, generation raises if an ISA is missing a required
     compiler role (see COMPILER_COVERAGE.md).
     """
+    want = (lambda g: True) if components is None else (lambda g: g in components)
     env = make_jinja_env()
 
     for isa_reg in registry.isas.values():
@@ -1236,56 +1242,57 @@ def generate_llvm(registry: Registry, output_dir: str, strict: bool = False,
             content = env.get_template(template_name).render(**ctx)
             write_generated(dest, content, clang_format=clang_format)
 
-        # TableGen files
-        render_to("llvm/llvm_root.td.j2",           target / f"{ISA}.td")
-        render_to("llvm/llvm_register_info.td.j2",  target / f"{ISA}RegisterInfo.td")
-        render_to("llvm/llvm_instr_formats.td.j2",  target / f"{ISA}InstrFormats.td")
-        render_to("llvm/llvm_instr_info.td.j2",     target / f"{ISA}InstrInfo.td")
-        render_to("llvm/llvm_calling_conv.td.j2",   target / f"{ISA}CallingConv.td")
-        render_to("llvm/llvm_schedule.td.j2",       target / f"{ISA}Schedule.td")
+        if want("tablegen"):
+            # TableGen files
+            render_to("llvm/llvm_root.td.j2",           target / f"{ISA}.td")
+            render_to("llvm/llvm_register_info.td.j2",  target / f"{ISA}RegisterInfo.td")
+            render_to("llvm/llvm_instr_formats.td.j2",  target / f"{ISA}InstrFormats.td")
+            render_to("llvm/llvm_instr_info.td.j2",     target / f"{ISA}InstrInfo.td")
+            render_to("llvm/llvm_calling_conv.td.j2",   target / f"{ISA}CallingConv.td")
+            render_to("llvm/llvm_schedule.td.j2",       target / f"{ISA}Schedule.td")
 
-        # Top-level header
-        render_to("llvm/llvm_isa_h.j2",             target / f"{ISA}.h")
+        if want("backend"):
+            # Top-level header + C++ backend files + CMake
+            render_to("llvm/llvm_isa_h.j2",               target / f"{ISA}.h")
+            render_to("llvm/llvm_target_machine.h.j2",    target / f"{ISA}TargetMachine.h")
+            render_to("llvm/llvm_target_machine.cpp.j2",  target / f"{ISA}TargetMachine.cpp")
+            render_to("llvm/llvm_subtarget.h.j2",         target / f"{ISA}Subtarget.h")
+            render_to("llvm/llvm_subtarget.cpp.j2",       target / f"{ISA}Subtarget.cpp")
+            render_to("llvm/llvm_register_info.h.j2",     target / f"{ISA}RegisterInfo.h")
+            render_to("llvm/llvm_register_info.cpp.j2",   target / f"{ISA}RegisterInfo.cpp")
+            render_to("llvm/llvm_instr_info.h.j2",        target / f"{ISA}InstrInfo.h")
+            render_to("llvm/llvm_instr_info.cpp.j2",      target / f"{ISA}InstrInfo.cpp")
+            render_to("llvm/llvm_isel_lowering.h.j2",     target / f"{ISA}ISelLowering.h")
+            render_to("llvm/llvm_isel_lowering.cpp.j2",   target / f"{ISA}ISelLowering.cpp")
+            render_to("llvm/llvm_isel_dag_to_dag.cpp.j2", target / f"{ISA}ISelDAGToDAG.cpp")
+            render_to("llvm/llvm_asm_printer.cpp.j2",     target / f"{ISA}AsmPrinter.cpp")
+            render_to("llvm/llvm_frame_lowering.h.j2",    target / f"{ISA}FrameLowering.h")
+            render_to("llvm/llvm_frame_lowering.cpp.j2",  target / f"{ISA}FrameLowering.cpp")
+            render_to("llvm/llvm_cmakelists.j2",          target / "CMakeLists.txt")
 
-        # C++ backend files
-        render_to("llvm/llvm_target_machine.h.j2",    target / f"{ISA}TargetMachine.h")
-        render_to("llvm/llvm_target_machine.cpp.j2",  target / f"{ISA}TargetMachine.cpp")
-        render_to("llvm/llvm_subtarget.h.j2",         target / f"{ISA}Subtarget.h")
-        render_to("llvm/llvm_subtarget.cpp.j2",       target / f"{ISA}Subtarget.cpp")
-        render_to("llvm/llvm_register_info.h.j2",     target / f"{ISA}RegisterInfo.h")
-        render_to("llvm/llvm_register_info.cpp.j2",   target / f"{ISA}RegisterInfo.cpp")
-        render_to("llvm/llvm_instr_info.h.j2",        target / f"{ISA}InstrInfo.h")
-        render_to("llvm/llvm_instr_info.cpp.j2",      target / f"{ISA}InstrInfo.cpp")
-        render_to("llvm/llvm_isel_lowering.h.j2",     target / f"{ISA}ISelLowering.h")
-        render_to("llvm/llvm_isel_lowering.cpp.j2",   target / f"{ISA}ISelLowering.cpp")
-        render_to("llvm/llvm_isel_dag_to_dag.cpp.j2", target / f"{ISA}ISelDAGToDAG.cpp")
-        render_to("llvm/llvm_asm_printer.cpp.j2",     target / f"{ISA}AsmPrinter.cpp")
-        render_to("llvm/llvm_frame_lowering.h.j2",    target / f"{ISA}FrameLowering.h")
-        render_to("llvm/llvm_frame_lowering.cpp.j2",  target / f"{ISA}FrameLowering.cpp")
-        render_to("llvm/llvm_cmakelists.j2",          target / "CMakeLists.txt")
+        if want("mc"):
+            # MCTargetDesc/
+            render_to("llvm/llvm_mc_target_desc.h.j2",     mcdesc / f"{ISA}MCTargetDesc.h")
+            render_to("llvm/llvm_mc_target_desc.cpp.j2",   mcdesc / f"{ISA}MCTargetDesc.cpp")
+            render_to("llvm/llvm_mc_asm_info.h.j2",        mcdesc / f"{ISA}MCAsmInfo.h")
+            render_to("llvm/llvm_mc_asm_info.cpp.j2",      mcdesc / f"{ISA}MCAsmInfo.cpp")
+            render_to("llvm/llvm_fixup_kinds.h.j2",        mcdesc / f"{ISA}FixupKinds.h")
+            render_to("llvm/llvm_mc_code_emitter.cpp.j2",  mcdesc / f"{ISA}MCCodeEmitter.cpp")
+            render_to("llvm/llvm_inst_printer.h.j2",       mcdesc / f"{ISA}InstPrinter.h")
+            render_to("llvm/llvm_inst_printer.cpp.j2",     mcdesc / f"{ISA}InstPrinter.cpp")
+            render_to("llvm/llvm_asm_backend.cpp.j2",      mcdesc / f"{ISA}AsmBackend.cpp")
+            render_to("llvm/llvm_elf_object_writer.cpp.j2", mcdesc / f"{ISA}ELFObjectWriter.cpp")
+            render_to("llvm/llvm_mc_cmakelists.j2",        mcdesc / "CMakeLists.txt")
+            # TargetInfo/
+            render_to("llvm/llvm_target_info.h.j2",          targetinfo / f"{ISA}TargetInfo.h")
+            render_to("llvm/llvm_target_info.cpp.j2",        targetinfo / f"{ISA}TargetInfo.cpp")
+            render_to("llvm/llvm_targetinfo_cmakelists.j2",  targetinfo / "CMakeLists.txt")
 
-        # MCTargetDesc/
-        render_to("llvm/llvm_mc_target_desc.h.j2",     mcdesc / f"{ISA}MCTargetDesc.h")
-        render_to("llvm/llvm_mc_target_desc.cpp.j2",   mcdesc / f"{ISA}MCTargetDesc.cpp")
-        render_to("llvm/llvm_mc_asm_info.h.j2",        mcdesc / f"{ISA}MCAsmInfo.h")
-        render_to("llvm/llvm_mc_asm_info.cpp.j2",      mcdesc / f"{ISA}MCAsmInfo.cpp")
-        render_to("llvm/llvm_fixup_kinds.h.j2",        mcdesc / f"{ISA}FixupKinds.h")
-        render_to("llvm/llvm_mc_code_emitter.cpp.j2",  mcdesc / f"{ISA}MCCodeEmitter.cpp")
-        render_to("llvm/llvm_inst_printer.h.j2",       mcdesc / f"{ISA}InstPrinter.h")
-        render_to("llvm/llvm_inst_printer.cpp.j2",     mcdesc / f"{ISA}InstPrinter.cpp")
-        render_to("llvm/llvm_asm_backend.cpp.j2",      mcdesc / f"{ISA}AsmBackend.cpp")
-        render_to("llvm/llvm_elf_object_writer.cpp.j2", mcdesc / f"{ISA}ELFObjectWriter.cpp")
-        render_to("llvm/llvm_mc_cmakelists.j2",        mcdesc / "CMakeLists.txt")
+        if want("backend"):
+            # Integration helpers at root
+            patch_sh = root / "patch_llvm.sh"
+            render_to("llvm/llvm_patch_sh.j2",    patch_sh)
+            patch_sh.chmod(patch_sh.stat().st_mode | 0o111)
+            render_to("llvm/llvm_integrate_md.j2", root / "INTEGRATE.md")
 
-        # TargetInfo/
-        render_to("llvm/llvm_target_info.h.j2",          targetinfo / f"{ISA}TargetInfo.h")
-        render_to("llvm/llvm_target_info.cpp.j2",        targetinfo / f"{ISA}TargetInfo.cpp")
-        render_to("llvm/llvm_targetinfo_cmakelists.j2",  targetinfo / "CMakeLists.txt")
-
-        # Integration helpers at root
-        patch_sh = root / "patch_llvm.sh"
-        render_to("llvm/llvm_patch_sh.j2",    patch_sh)
-        patch_sh.chmod(patch_sh.stat().st_mode | 0o111)
-        render_to("llvm/llvm_integrate_md.j2", root / "INTEGRATE.md")
-
-    logger.info(f"Generated complete LLVM target in {output_dir}")
+    logger.info(f"Generated LLVM target ({output_dir})")

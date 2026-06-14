@@ -5,6 +5,7 @@ from typing import List, Dict, Any, Optional, Union
 
 _loader_logger = logging.getLogger("isa_archive.loader")
 from ..models import ManifestBase, Operand, Schema, Instruction, ISA, uArch, Constant, EnumDef
+from ..models.project import Project
 from ..models.machine import MachineLayout
 from ..models.enums import FieldRole
 from .utils import build_reg_maps, instruction_pattern
@@ -321,7 +322,7 @@ def load_manifest(data: Dict[str, Any]) -> ManifestBase:
     mapping = {
         "ISA": ISA, "uArch": uArch, "Operand": Operand,
         "Schema": Schema, "Instruction": Instruction,
-        "Constant": Constant, "Enum": EnumDef
+        "Constant": Constant, "Enum": EnumDef, "Project": Project,
     }
     if kind not in mapping: raise ValueError(f"Unknown kind: {kind}")
     return mapping[kind](**data)
@@ -452,3 +453,38 @@ def load_directory(directory: str) -> Registry:
         load_uarch(p, global_registry)
 
     return global_registry
+
+
+def load_project(project_path: str, global_registry: Optional[Registry] = None):
+    """Load a `kind: Project` manifest: parse it, then load every ISA and uArch it
+    references (paths relative to the project file) into a Registry.
+
+    Returns ``(registry, project, project_dir, requested_isa_names)`` — the last is
+    the names of the explicitly-listed ISAs (an ``extends:`` base is also loaded so
+    an extension can resolve, but it is not in this list).
+    """
+    if global_registry is None:
+        global_registry = Registry()
+    path = pathlib.Path(project_path).resolve()
+    if path.stat().st_size > MAX_YAML_BYTES:
+        raise ValueError(f"Manifest file {path} exceeds size limit ({MAX_YAML_BYTES} bytes)")
+    with open(path, "r") as f:
+        docs = list(yaml.safe_load_all(f))
+    project = None
+    for doc in docs:
+        if not doc:
+            continue
+        manifest = load_manifest(doc)
+        if isinstance(manifest, Project):
+            project = manifest
+            break
+    if project is None:
+        raise ValueError(f"No Project manifest in {project_path}")
+
+    requested: list[str] = []
+    for isa_rel in project.spec.isas:
+        requested.append(load_isa(str((path.parent / isa_rel).resolve()), global_registry).name)
+    for uarch_rel in project.spec.uarch:
+        load_uarch(str((path.parent / uarch_rel).resolve()), global_registry)
+
+    return global_registry, project, path.parent, requested

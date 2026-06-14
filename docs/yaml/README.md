@@ -26,6 +26,7 @@ Multiple manifests can live in one file, separated by `---`.
 | `Enum` | Named values for a field (`F3_BRANCH.BEQ`) | [types.md](types.md) |
 | `Constant` | A named number (`opcode: STORE`) | [types.md](types.md) |
 | `uArch` | A micro-architecture implementing the ISA (for `-t verilog`) | [uarch.md](uarch.md) |
+| `Project` | A build config: which targets to generate, and where (`isa-archive build`) | [project.md](project.md) |
 
 Instruction semantics are written in a small Python-like language — the
 [behavior DSL](behavior.md).

@@ -1,12 +1,18 @@
 # CLI reference
 
-The tool has three commands:
+The tool has four commands:
 
 ```
 isa-archive init      Scaffold a new ISA project with a working example
 isa-archive parse     Parse and validate manifests without generating output
 isa-archive generate  Generate artifacts from manifests
+isa-archive build     Generate everything a Project manifest configures, into its paths
 ```
+
+`generate -t <target>` accepts parent targets and sub-targets alike
+(`qemu`, `qemu-isa`, `qemu-machine`, `llvm`, `llvm-tablegen`, `docs-html`, …).
+`build` runs the `{ target, output }` entries of a [`Project`](yaml/project.md)
+manifest; see that page for the full target taxonomy.
 
 ## `isa-archive init`
 

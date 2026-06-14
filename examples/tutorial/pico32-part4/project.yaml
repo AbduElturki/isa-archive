@@ -1,0 +1,22 @@
+apiVersion: isa-archive/v1
+kind: Project
+metadata:
+  name: pico32-soc
+  description: >
+    Example Project manifest — generates the pieces of pico32 a real project
+    needs, each into its own path. Run with:  isa-archive build project.yaml
+spec:
+  # ISA(s) and uArch this project builds (paths are relative to this file).
+  isas:
+    - isa.yaml
+  uarch:
+    - uarch.yaml
+
+  # Each entry: a target (or sub-target) and where to write it. Re-running the
+  # build regenerates every output unless an entry opts out with on_exist.
+  generate:
+    - { target: qemu,          output: build/qemu }      # full QEMU source tree
+    - { target: llvm-tablegen, output: build/llvm-td }   # just the *.td files
+    - { target: cpp-isa,       output: build/model }      # descriptive C++ headers
+    - { target: docs-html,     output: build/docs }       # HTML reference manual
+    - { target: qemu-machine,  output: build/board, on_exist: skip }  # board only; don't clobber edits

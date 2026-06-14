@@ -11,6 +11,7 @@ from .constant import Constant, ConstantSpec
 from .isa_enum import EnumDef, EnumDefSpec
 from .csr import CSRField
 from .abi import ABI
+from .project import Project, ProjectSpec, GenerateEntry
 from .scalar_types import ScalarType, ArithClass, resolve as resolve_scalar_type, of_register
 
 __all__ = [
@@ -41,6 +42,9 @@ __all__ = [
     "ConstantSpec",
     "EnumDef",
     "EnumDefSpec",
+    "Project",
+    "ProjectSpec",
+    "GenerateEntry",
     "CSRField",
     "MachineLayout",
     "DeviceDef",
