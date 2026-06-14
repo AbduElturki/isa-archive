@@ -4,7 +4,7 @@ from ..compiler.loader import Registry, ISARegistry
 from ..models.enums import FieldRole
 from ..compiler.behavior import BehaviorIR
 from ..compiler.utils import build_reg_maps
-from .base import make_jinja_env, prepare_output_dir
+from .base import make_jinja_env, prepare_output_dir, write_generated
 
 logger = logging.getLogger("isa_archive.generators")
 
@@ -197,11 +197,10 @@ def generate_asm(registry: Registry, output_dir: str):
         }
 
         asm_path = out_path / f"{isa_reg.name}_asm.py"
-        asm_path.write_text(env.get_template("asm/asm_assembler.py.j2").render(**ctx))
+        write_generated(asm_path, env.get_template("asm/asm_assembler.py.j2").render(**ctx))
         asm_path.chmod(asm_path.stat().st_mode | 0o111)
 
-        (out_path / "linker.ld").write_text(
-            env.get_template("asm/asm_linker_ld.j2").render(**ctx)
-        )
+        write_generated(out_path / "linker.ld",
+                        env.get_template("asm/asm_linker_ld.j2").render(**ctx))
 
     logger.info(f"Generated assembler in {output_dir}")

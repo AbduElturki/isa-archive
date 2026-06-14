@@ -7,7 +7,7 @@ from ..compiler.backends import QemuCBackend, QemuTCGBackend
 from ..compiler.utils import build_reg_maps, instruction_pattern, constraint_to_c, compute_insn_width
 from ..models.enums import FieldRole
 from ..models.scalar_types import of_register
-from .base import make_jinja_env, prepare_output_dir
+from .base import make_jinja_env, prepare_output_dir, write_generated, CLANG_FORMAT_QEMU
 
 logger = logging.getLogger("isa_archive.generators")
 
@@ -251,24 +251,28 @@ def _validate_for_qemu(isa_reg) -> None:
         )
 
 
-def _write_isa_files(env, isa_reg, out_path: pathlib.Path):
+def _write_isa_files(env, isa_reg, out_path: pathlib.Path, clang_format: bool = False):
     """Generate the 8 ISA-semantics files into out_path (flat)."""
     _validate_for_qemu(isa_reg)
     xlen = isa_reg.xlen
     word = _guest_word(isa_reg)
     _w = compute_insn_width(isa_reg, isa_reg.name, max_bits=64,  # QEMU fetch ≤ 64-bit word
                             limit_hint=("The QEMU backend fetches one instruction word per translation step and decodetree patterns cap at 64 bits; wider encodings are currently LLVM-only (see the generality plan, G3)."))
+    float_types = _float_scalar_types(isa_reg)
+    has_mem = any("mem" in i.spec.behavior for i in isa_reg.instructions.values())
+    has_sext = any("sext" in i.spec.behavior for i in isa_reg.instructions.values())
     ctx = dict(instructions=isa_reg.instructions, isa_reg=isa_reg, isa_name=isa_reg.name,
                xlen=xlen, tcg_type=word["tcg_type"], c_int_type=word["c_int_type"],
                tcg_bits=word["tcg_bits"], xlen_mask=word["xlen_mask"],
                page_bits=word["page_bits"], addr_bits=word["addr_bits"],
                insn_bits=_w["insn_bits"], insn_bytes=_w["insn_bytes"],
                reg_storage=_regfile_storage(isa_reg),
-               float_scalar_types=_float_scalar_types(isa_reg))
+               float_scalar_types=float_types,
+               has_mem=has_mem, has_float=bool(float_types), has_sext=has_sext)
 
     def render(template_name: str, out_name: str):
         content = env.get_template(template_name).render(**ctx)
-        (out_path / out_name).write_text(content)
+        write_generated(out_path / out_name, content, clang_format=clang_format)
 
     render("qemu/qemu_decode.decode.j2",  f"{isa_reg.name}.decode")
     render("qemu/qemu_helpers.c.j2",      f"{isa_reg.name}_helpers.c")
@@ -281,16 +285,17 @@ def _write_isa_files(env, isa_reg, out_path: pathlib.Path):
         render("qemu/qemu_operands.h.j2", f"{isa_reg.name}_operands.h")
 
 
-def generate_qemu_isa(registry: Registry, output_dir: str):
+def generate_qemu_isa(registry: Registry, output_dir: str, clang_format: bool = False):
     """Generate ISA semantics files only (flat in output_dir). Old `qemu` target behavior."""
     env = _make_qemu_env()
     out_path = prepare_output_dir(output_dir)
+    write_generated(out_path / ".clang-format", CLANG_FORMAT_QEMU)
     for isa_reg in registry.isas.values():
-        _write_isa_files(env, isa_reg, out_path)
+        _write_isa_files(env, isa_reg, out_path, clang_format=clang_format)
     logger.info(f"Generated QEMU ISA artifacts in {output_dir}")
 
 
-def generate_qemu(registry: Registry, output_dir: str):
+def generate_qemu(registry: Registry, output_dir: str, clang_format: bool = False):
     """Generate complete QEMU target: ISA semantics + QOM boilerplate + machine + build system.
 
     Output mirrors the QEMU source tree so files can be dropped in directly:
@@ -347,14 +352,17 @@ def generate_qemu(registry: Registry, output_dir: str):
         root = pathlib.Path(output_dir)
         isa = isa_reg.name
 
+        # Ship a clang-format config so adopted code formats to QEMU house style.
+        write_generated(root / ".clang-format", CLANG_FORMAT_QEMU)
+
         # target/{isa}/ — ISA semantics + QOM boilerplate
         target_dir = root / "target" / isa
         target_dir.mkdir(parents=True, exist_ok=True)
-        _write_isa_files(env, isa_reg, target_dir)
+        _write_isa_files(env, isa_reg, target_dir, clang_format=clang_format)
 
         def render_to(template_name: str, dest: pathlib.Path):
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            dest.write_text(env.get_template(template_name).render(**ctx))
+            content = env.get_template(template_name).render(**ctx)
+            write_generated(dest, content, clang_format=clang_format)
 
         render_to("qemu/qemu_cpu_h.j2",            target_dir / "cpu.h")
         render_to("qemu/qemu_cpu_qom_h.j2",        target_dir / "cpu-qom.h")

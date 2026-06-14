@@ -91,27 +91,42 @@ unsigned {{ ISA }}MCCodeEmitter::getMachineOpValue(
     return static_cast<unsigned>(MO.getImm());
   if (MO.isExpr()) {
     unsigned Opcode = MI.getOpcode();
+{% set has_opcode_fixups = (jal_fixup_info and jal_opcode) or lui_fixup_info or addi_fixup_info %}
+{% if has_opcode_fixups %}
+    // Per-opcode relocation fixup, looked up by instruction opcode. Anything
+    // without an explicit entry uses the branch fixup as the fallback.
+    static const struct { unsigned Opcode; MCFixupKind Kind; } FixupTable[] = {
+{%- if jal_fixup_info and jal_opcode %}
+        { {{ ISA }}::{{ jal_opcode }},  (MCFixupKind)fixup_{{ isa_name }}_jal },
+{%- endif %}
+{%- if lui_fixup_info %}
+        { {{ ISA }}::{{ lui_opcode }},  (MCFixupKind)fixup_{{ isa_name }}_hi20 },
+{%- endif %}
+{%- if addi_fixup_info %}
+        { {{ ISA }}::{{ addi_opcode }}, (MCFixupKind)fixup_{{ isa_name }}_lo12_i },
+{%- endif %}
+    };
     MCFixupKind Kind;
-{% if jal_fixup_info and jal_opcode %}
-    if (Opcode == {{ ISA }}::{{ jal_opcode }})
-      Kind = (MCFixupKind)fixup_{{ isa_name }}_jal;
-    else
-{% endif %}
-{% if lui_fixup_info %}
-    if (Opcode == {{ ISA }}::{{ lui_opcode }})
-      Kind = (MCFixupKind)fixup_{{ isa_name }}_hi20;
-    else
-{% endif %}
-{% if addi_fixup_info %}
-    if (Opcode == {{ ISA }}::{{ addi_opcode }})
-      Kind = (MCFixupKind)fixup_{{ isa_name }}_lo12_i;
-    else
-{% endif %}
-{% if branch_fixup_info %}
+    bool Found = false;
+    for (const auto &Entry : FixupTable) {
+      if (Entry.Opcode == Opcode) { Kind = Entry.Kind; Found = true; break; }
+    }
+    if (!Found) {
+{%- if branch_fixup_info %}
       Kind = (MCFixupKind)fixup_{{ isa_name }}_branch;
-{% else %}
-      llvm_unreachable("{{ isa_name }}: MCExpr with no fixup kind");
-{% endif %}
+{%- else %}
+      llvm_unreachable("{{ isa_name }}: MCExpr on an instruction with no fixup kind");
+{%- endif %}
+    }
+{%- else %}
+    (void)Opcode;
+{%- if branch_fixup_info %}
+    MCFixupKind Kind = (MCFixupKind)fixup_{{ isa_name }}_branch;
+{%- else %}
+    MCFixupKind Kind;
+    llvm_unreachable("{{ isa_name }}: MCExpr with no fixup kind");
+{%- endif %}
+{%- endif %}
     Fixups.push_back(MCFixup::create(0, MO.getExpr(), Kind));
     return 0;
   }

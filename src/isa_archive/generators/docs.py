@@ -1,6 +1,6 @@
 import logging
 from ..compiler.loader import Registry
-from .base import make_jinja_env, prepare_output_dir
+from .base import make_jinja_env, prepare_output_dir, write_generated
 
 logger = logging.getLogger("isa_archive.generators")
 
@@ -43,7 +43,6 @@ def generate_docs(registry: Registry, output_dir: str, doc_format: str = "md"):
                 output = template.render(**context)
                 
                 filename = f"{isa_reg.name}_reference.{fmt}"
-                with open(out_path / filename, "w") as f:
-                    f.write(output)
+                write_generated(out_path / filename, output)
     
     logger.info(f"Generated {doc_format.upper()} documentation in {output_dir}")

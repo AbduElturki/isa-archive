@@ -4,11 +4,11 @@ from ..compiler.behavior import BehaviorIR
 from ..compiler.backends import VerilogBackend
 from ..compiler.utils import build_reg_maps, instruction_pattern
 from ..models.enums import AccessMode
-from .base import make_jinja_env, prepare_output_dir
+from .base import make_jinja_env, prepare_output_dir, write_generated
 
 logger = logging.getLogger("isa_archive.generators")
 
-def generate_verilog(registry: Registry, output_dir: str):
+def generate_verilog(registry: Registry, output_dir: str, clang_format: bool = False):
     env = make_jinja_env()
     def get_verilog_info(instr_obj, isa_reg):
         schema = isa_reg.schemas.get(instr_obj.spec.schema_name)
@@ -31,8 +31,7 @@ def generate_verilog(registry: Registry, output_dir: str):
         # Generate Operands
         template_op = env.get_template("sv/operands.sv.j2")
         output_op = template_op.render(operands=isa_reg.operands)
-        with open(out_path / f"{isa_reg.name}_operands.sv", "w") as f:
-            f.write(output_op)
+        write_generated(out_path / f"{isa_reg.name}_operands.sv", output_op)
 
     # Generate for each uArch
     for uarch_reg in registry.uarches.values():
@@ -118,8 +117,7 @@ def generate_verilog(registry: Registry, output_dir: str):
                 has_pc_write=has_pc_write,
                 imm_fields_by_instr=imm_fields_by_instr,
             )
-            with open(out_path / f"{uarch_reg.name}_{block.name}.sv", "w") as f:
-                f.write(output_block)
+            write_generated(out_path / f"{uarch_reg.name}_{block.name}.sv", output_block)
 
         # Generate Top
         template_top = env.get_template("sv/top.sv.j2")
@@ -129,7 +127,6 @@ def generate_verilog(registry: Registry, output_dir: str):
             isa_name=uarch_reg.isa.name,
             xlen=uarch_reg.isa.xlen,
         )
-        with open(out_path / f"{uarch_reg.name}_top.sv", "w") as f:
-            f.write(output_top)
+        write_generated(out_path / f"{uarch_reg.name}_top.sv", output_top)
 
     logger.info(f"Generated SV artifacts in {output_dir}")

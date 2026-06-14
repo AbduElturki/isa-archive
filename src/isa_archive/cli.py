@@ -53,21 +53,21 @@ def _setup_logging(verbose: bool, quiet: bool) -> None:
 
 
 def _run_target(t: Target, registry: Registry, output: str, doc_format: DocFormat,
-                strict: bool = False) -> None:
+                strict: bool = False, fmt: bool = False) -> None:
     if t == Target.verilog:
-        generate_verilog(registry, output)
+        generate_verilog(registry, output, clang_format=fmt)
     elif t == Target.llvm:
-        generate_llvm(registry, output, strict=strict)
+        generate_llvm(registry, output, strict=strict, clang_format=fmt)
     elif t == Target.c:
-        generate_software(registry, output, "c")
+        generate_software(registry, output, "c", clang_format=fmt)
     elif t == Target.rust:
-        generate_software(registry, output, "rust")
+        generate_software(registry, output, "rust", clang_format=fmt)
     elif t == Target.docs:
         generate_docs(registry, output, doc_format.value)
     elif t == Target.qemu:
-        generate_qemu(registry, output)
+        generate_qemu(registry, output, clang_format=fmt)
     elif t == Target.qemu_isa:
-        generate_qemu_isa(registry, output)
+        generate_qemu_isa(registry, output, clang_format=fmt)
     elif t == Target.asm:
         generate_asm(registry, output)
 
@@ -127,6 +127,7 @@ def generate(
     output: str = typer.Option("build", "--output", "-o", help="Output directory"),
     doc_format: DocFormat = typer.Option(DocFormat.md, "--format", "-f", help="Documentation format"),
     strict: bool = typer.Option(False, "--strict", help="Fail if the LLVM backend is missing a required compiler role"),
+    fmt: bool = typer.Option(False, "--format", help="Run clang-format on generated C/C++ (requires clang-format on PATH)"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable debug logging"),
     quiet: bool = typer.Option(False, "--quiet", "-q", help="Suppress info output"),
 ):
@@ -150,7 +151,7 @@ def generate(
 
         targets = _ALL_TARGETS if target == Target.all else [target]
         for t in targets:
-            _run_target(t, registry, output, doc_format, strict=strict)
+            _run_target(t, registry, output, doc_format, strict=strict, fmt=fmt)
     except Exception as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1)

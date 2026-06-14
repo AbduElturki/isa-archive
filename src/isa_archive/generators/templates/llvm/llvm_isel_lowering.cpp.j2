@@ -305,14 +305,11 @@ SDValue {{ ISA }}TargetLowering::LowerFormalArguments(
       SDValue ArgIn = DAG.getCopyFromReg(Chain, DL, VReg, RegVT);
       InVals.push_back(ArgIn);
     } else {
-      // Stack argument
+      // Stack argument: loaded by frame index (SP-relative); the slot offset is
+      // resolved later in eliminateFrameIndex, so no explicit SP value is needed.
       assert(VA.isMemLoc());
-{% if sp_reg %}
-      SDValue StackPtr = DAG.getCopyFromReg(Chain, DL, {{ ISA }}::{{ sp_reg }},
-                                             getPointerTy(DAG.getDataLayout()));
-{% else %}
-      llvm_unreachable("Stack arguments require a stack pointer register (sp alias not defined in ISA)");
-      SDValue StackPtr;
+{% if not sp_reg %}
+      llvm_unreachable("Stack arguments require a stack-pointer register (no sp alias in the ISA)");
 {% endif %}
       SDValue FI = DAG.getFrameIndex(
           MF.getFrameInfo().CreateFixedObject(VA.getLocVT().getSizeInBits() / 8,

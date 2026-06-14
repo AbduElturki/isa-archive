@@ -36,9 +36,10 @@ def jaltarget : Operand<OtherVT> {
 // ── Instruction definitions ────────────────────────────────────────────────
 
 {% for instr_name, instr_info in instr_defs %}
-// {{ instr_name }}{% if instr_info.description %}: {{ instr_info.description }}{% endif %}
-
 {% set schema = instr_info.schema %}
+// {{ instr_name }}{% if instr_info.description %}: {{ instr_info.description }}{% endif %}
+//   from: {{ instr_info.behavior }}
+//   category: {{ instr_info.dag_category }}{% if instr_info.roles %}   roles: {{ instr_info.roles | join(", ") }}{% endif %}{% if not instr_info.dag_pattern and not (instr_info.dag_category == "branch" and instr_info.branch_cond) %}   (custom lowering — no DAG pattern){% endif %}
 {% set is_handled_branch = instr_info.dag_category == "branch" and instr_info.branch_cond %}
 {% if instr_info.dag_pattern %}
 def {{ instr_name }} : {{ ISA }}_{{ schema }}<

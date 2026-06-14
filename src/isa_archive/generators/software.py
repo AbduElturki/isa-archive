@@ -4,7 +4,7 @@ from typing import Optional
 
 from ..compiler.loader import Registry
 from ..compiler.utils import constraint_to_c
-from .base import make_jinja_env, prepare_output_dir
+from .base import make_jinja_env, prepare_output_dir, write_generated
 from .llvm import _build_instr_defs
 
 logger = logging.getLogger("isa_archive.generators")
@@ -201,7 +201,8 @@ def _calculate_mask(start: int, end: int) -> str:
     return hex(((1 << (end - start + 1)) - 1) << start)
 
 
-def generate_software(registry: Registry, output_dir: str, lang: SoftwareLang):
+def generate_software(registry: Registry, output_dir: str, lang: SoftwareLang,
+                      clang_format: bool = False):
     env = make_jinja_env()
     env.filters["constraint_to_c"] = constraint_to_c
     env.filters["calculate_mask"] = _calculate_mask
@@ -230,8 +231,10 @@ def generate_software(registry: Registry, output_dir: str, lang: SoftwareLang):
         output_intrin = template_intrin.render(intrinsics=rendered, isa_name=isa_reg.name)
         output_struct = template_struct.render(operands=isa_reg.operands, isa_name=isa_reg.name)
         output_csr = template_csr.render(csrs={}, isa_name=isa_reg.name, hex=hex)
-        with open(out_path / f"{isa_reg.name}_intrinsics.{extension}", "w") as f: f.write(output_intrin)
-        with open(out_path / f"{isa_reg.name}_structs.{extension}", "w") as f: f.write(output_struct)
-        with open(out_path / f"{isa_reg.name}_csrs.{extension}", "w") as f: f.write(output_csr)
+        # Rust (.rs) isn't C/C++, so clang_format is a no-op there by extension.
+        cf = clang_format and lang == SoftwareLang.C
+        write_generated(out_path / f"{isa_reg.name}_intrinsics.{extension}", output_intrin, clang_format=cf)
+        write_generated(out_path / f"{isa_reg.name}_structs.{extension}", output_struct, clang_format=cf)
+        write_generated(out_path / f"{isa_reg.name}_csrs.{extension}", output_csr, clang_format=cf)
 
     logger.info(f"Generated {lang.upper()} software artifacts in {output_dir}")

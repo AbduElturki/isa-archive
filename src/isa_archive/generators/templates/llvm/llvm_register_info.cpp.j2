@@ -32,8 +32,8 @@ const uint32_t *
 BitVector
 {{ ISA }}RegisterInfo::getReservedRegs(const MachineFunction &MF) const {
   BitVector Reserved(getNumRegs());
-{% for reg in reserved_regs %}
-  Reserved.set({{ ISA }}::{{ reg }});
+{% for r in reserved_regs %}
+  Reserved.set({{ ISA }}::{{ r.reg }});   // {{ r.alias }}
 {% endfor %}
   return Reserved;
 }

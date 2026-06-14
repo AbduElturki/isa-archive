@@ -12,7 +12,7 @@ from ..models.abi import ABI
 from ..models.compiler import CompilerProfile
 from ..models.enums import FieldRole
 from ..models.scalar_types import of_register, resolve as resolve_scalar_type
-from .base import make_jinja_env, prepare_output_dir
+from .base import make_jinja_env, prepare_output_dir, write_generated, CLANG_FORMAT_LLVM
 
 logger = logging.getLogger("isa_archive.generators")
 
@@ -250,6 +250,10 @@ def _build_instr_defs(isa_reg, ISA_upper: str,
             "fixed_fields": fixed_fields,
             "branch_cond": branch_cond,
             "description": instr.metadata.description or "",
+            # Provenance for generated comments: the source behavior and the
+            # roles (schema-level + per-instruction) that shaped this def.
+            "behavior": " ".join(instr.spec.behavior.split()),
+            "roles": schema_roles + instr_roles,
         }
         instr_defs.append((instr_name.upper(), instr_info))
 
@@ -795,7 +799,8 @@ def _infer_const_strategy(roles: dict[str, str], instr_defs: list) -> str:
     return "hi_lo_add"  # default; coverage report flags missing hi/lo
 
 
-def generate_llvm(registry: Registry, output_dir: str, strict: bool = False):
+def generate_llvm(registry: Registry, output_dir: str, strict: bool = False,
+                  clang_format: bool = False):
     """Generate a complete LLVM backend for every ISA in the registry.
 
     Output mirrors the LLVM source tree layout for easy drop-in:
@@ -1002,16 +1007,21 @@ def generate_llvm(registry: Registry, output_dir: str, strict: bool = False):
             for name, s in isa_reg.schemas.items()
         }
 
-        # Registers that must never be allocated (zero, sp, gp, tp, frame-pointer)
-        reserved_regs: list[str] = []
+        # Registers that must never be allocated (zero, sp, gp, tp, frame-pointer).
+        # Each entry carries its ABI alias so the generated code self-documents
+        # *why* a physical register is reserved.
+        reserved_regs: list[dict] = []
+        _seen_reserved: set[str] = set()
         if first_reg:
             for alias in ["zero", "sp", "gp", "tp"]:
                 if alias in first_reg.aliases:
-                    reserved_regs.append(f"{first_reg.prefix}{first_reg.aliases[alias]}")
+                    reg = f"{first_reg.prefix}{first_reg.aliases[alias]}"
+                    reserved_regs.append({"reg": reg, "alias": alias})
+                    _seen_reserved.add(reg)
             if abi.frame_pointer and abi.frame_pointer in first_reg.aliases:
                 fp_r = f"{first_reg.prefix}{first_reg.aliases[abi.frame_pointer]}"
-                if fp_r not in reserved_regs:
-                    reserved_regs.append(fp_r)
+                if fp_r not in _seen_reserved:
+                    reserved_regs.append({"reg": fp_r, "alias": abi.frame_pointer})
 
         triple_arch = isa_reg.manifest.spec.triple_arch or isa_name
 
@@ -1202,7 +1212,9 @@ def generate_llvm(registry: Registry, output_dir: str, strict: bool = False):
             custom_instrs=custom_instrs,
         )
         target.mkdir(parents=True, exist_ok=True)
-        (target / "COMPILER_COVERAGE.md").write_text(report_md)
+        write_generated(target / "COMPILER_COVERAGE.md", report_md)
+        # Ship a clang-format config so adopted code formats to LLVM house style.
+        write_generated(target / ".clang-format", CLANG_FORMAT_LLVM)
         if missing_required:
             logger.warning(
                 "%s: compiler backend INCOMPLETE for profile '%s' — missing: %s "
@@ -1221,8 +1233,8 @@ def generate_llvm(registry: Registry, output_dir: str, strict: bool = False):
                         "(strategy=%s)", ISA, profile, const_strategy)
 
         def render_to(template_name: str, dest: pathlib.Path):
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            dest.write_text(env.get_template(template_name).render(**ctx))
+            content = env.get_template(template_name).render(**ctx)
+            write_generated(dest, content, clang_format=clang_format)
 
         # TableGen files
         render_to("llvm/llvm_root.td.j2",           target / f"{ISA}.td")

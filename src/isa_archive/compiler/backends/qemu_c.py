@@ -4,6 +4,13 @@ from ..behavior import BehaviorIR
 from .base import _BackendBase
 
 
+def _indent(code: str) -> str:
+    """Indent each non-blank line of a (possibly multi-line) statement block by
+    four spaces, so generated `if`/`for` bodies are readable even without a
+    post-generation clang-format pass."""
+    return "\n".join("    " + ln if ln.strip() else ln for ln in code.split("\n"))
+
+
 def _c_int_types(width: int) -> tuple[str, str, int]:
     """(unsigned C type, signed C type, storage bits) for a value width.
 
@@ -72,10 +79,10 @@ class QemuCBackend(_BackendBase):
                 self._cast_width = max(reg_widths)
             cond = self._translate(node.test, env_prefix)
             self._cast_width = prev_cw
-            body = "\n".join(self._translate(s, env_prefix) for s in node.body)
+            body = _indent("\n".join(self._translate(s, env_prefix) for s in node.body))
             res = f"if ({cond}) {{\n{body}\n}}"
             if node.orelse:
-                orelse = "\n".join(self._translate(s, env_prefix) for s in node.orelse)
+                orelse = _indent("\n".join(self._translate(s, env_prefix) for s in node.orelse))
                 res += f" else {{\n{orelse}\n}}"
             return res
 
@@ -87,7 +94,7 @@ class QemuCBackend(_BackendBase):
             args = node.iter.args
             start = "0" if len(args) == 1 else self._translate(args[0], env_prefix)
             end = self._translate(args[0] if len(args) == 1 else args[1], env_prefix)
-            body = "\n".join(self._translate(s, env_prefix) for s in node.body)
+            body = _indent("\n".join(self._translate(s, env_prefix) for s in node.body))
             return f"for (uint32_t {loop_var} = {start}; {loop_var} < {end}; {loop_var}++) {{\n{body}\n}}"
 
         if isinstance(node, ast.Assign):
@@ -202,11 +209,11 @@ class QemuCBackend(_BackendBase):
                     n = node.args[1].value
                     if n > w:  # extending to less than n bits makes no sense
                         w = n
-                    utype, stype, bits = _c_int_types(w)
-                    shift = bits - n
-                    # Widen BEFORE shifting — shifting a narrower operand by
-                    # (bits - n) would be undefined behavior.
-                    return f"(({stype})(({utype})({inner}) << {shift}) >> {shift})"
+                    _, _, bits = _c_int_types(w)
+                    # Sign-extend the low n bits via a generated isa_sextN() helper
+                    # (defined in the helpers preamble) so the call site stays
+                    # readable instead of a nested double-cast/shift expression.
+                    return f"isa_sext{bits}({inner}, {n})"
                 utype, stype, _ = _c_int_types(w)
                 if func_id == "signed":
                     return f"({stype})({inner})"

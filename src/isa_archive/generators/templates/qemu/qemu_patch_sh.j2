@@ -8,6 +8,15 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 QEMU="${1:?Usage: patch_qemu.sh <qemu-src-dir>}"
 QEMU="$(realpath "$QEMU")"
 
+# Fail early if this isn't a QEMU source tree, rather than scattering a
+# half-applied patch across an unrelated directory.
+for required in target/Kconfig target/meson.build hw/Kconfig include/sysemu/arch_init.h; do
+  [ -e "$QEMU/$required" ] || {
+    echo "ERROR: '$QEMU' does not look like a QEMU source tree (missing $required)." >&2
+    exit 1
+  }
+done
+
 ALL_TARGETS=""
 for tgt_path in "$SCRIPT_DIR"/target/*/; do
   ISA="$(basename "$tgt_path")"

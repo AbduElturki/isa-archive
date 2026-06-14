@@ -449,7 +449,8 @@ def test_sext_uses_target_register_width():
                     register_map={"ad": "acc", "rs1": "gpr"},
                     var_widths={"ad": 64, "rs1": 32, "pc": 32})
     code = QemuCBackend(ir).translate(helper_only_regfiles={"acc"})
-    assert "int64_t" in code and "int32_t" not in code
+    # sext lowers to the width-specific isa_sextN helper (64-bit target → sext64).
+    assert "isa_sext64(" in code and "isa_sext32(" not in code
 
 
 def test_sext_default_width_unchanged_for_xlen_targets():
@@ -457,7 +458,7 @@ def test_sext_default_width_unchanged_for_xlen_targets():
                     register_map={"rd": "gpr"},
                     var_widths={"rd": 32, "imm": 12, "pc": 32})
     code = QemuCBackend(ir).translate()
-    assert "int32_t" in code
+    assert "isa_sext32(" in code
 
 
 # ── Flexible xlen: narrow data widths emulated over a 32-bit guest word ──────
