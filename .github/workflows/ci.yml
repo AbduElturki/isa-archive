@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Cancel superseded runs on the same ref (e.g. rapid pushes to a PR branch).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test (py${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          python-version: ${{ matrix.python-version }}
+
+      - name: Sync dependencies
+        run: uv sync
+
+      - name: Run tests
+        run: uv run pytest -q
+
+  cli-smoke:
+    name: cli smoke (generate)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          python-version: "3.12"
+
+      - name: Sync dependencies
+        run: uv sync
+
+      # Exercise every file-emitting backend end-to-end (verilog, llvm, c, rust,
+      # docs(md), qemu-isa) so a generator regression fails CI even if a unit
+      # test misses it. This does not build LLVM/QEMU — it only generates source.
+      - name: Generate all targets for an example ISA
+        run: uv run isa-archive generate -i examples/rv32/base/isa.yaml -t all -o build/smoke
+
+      - name: Generate C intrinsics for the NPU probe
+        run: uv run isa-archive generate -i examples/npu-probe/isa.yaml -t c -o build/smoke-npu
