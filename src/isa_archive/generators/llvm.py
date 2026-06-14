@@ -30,6 +30,11 @@ def _build_instr_defs(isa_reg, ISA_upper: str,
         r.name: {"class": r.name.upper(), "is_float": r.is_float}
         for r in isa_reg.registers
     }
+    # Width/float of each register file, keyed by file name — used to populate
+    # the language-agnostic structured operand metadata below (`out_ops`/`in_*`),
+    # which downstream generators (e.g. the C/Rust intrinsics) consume.
+    reg_meta = {r.name: {"width": r.width, "is_float": r.is_float}
+                for r in isa_reg.registers}
 
     instr_defs = []
     for instr_name, instr in isa_reg.instructions.items():
@@ -88,6 +93,13 @@ def _build_instr_defs(isa_reg, ISA_upper: str,
         reg_asm_parts: list[str] = []
         imm_asm_parts: list[str] = []
 
+        # Language-agnostic structured operands (name + width/signedness), in the
+        # same out-then-reg-then-imm order as the assembly string. Downstream
+        # generators map these to concrete C/Rust types.
+        out_ops: list[dict] = []
+        in_reg_ops: list[dict] = []
+        in_imm_ops: list[dict] = []
+
         out_asm_parts: list[str] = []
         for field in schema.spec.fields:
             if field.is_fixed_value:
@@ -95,23 +107,32 @@ def _build_instr_defs(isa_reg, ISA_upper: str,
             if field.role == FieldRole.REGISTER:
                 reg_class = reg_class_map.get(field.type or "", "GPR")
                 td_operand = f"{reg_class}:${field.name}"
+                meta = reg_meta.get(field.type or "", {"width": isa_reg.xlen, "is_float": False})
+                op_entry = {"name": field.name, "width": meta["width"],
+                            "is_float": meta["is_float"]}
                 if field.name in write_vars:
                     outs_parts.append(td_operand)
                     out_asm_parts.append(f"${field.name}")
+                    out_ops.append(op_entry)
                 else:
                     reg_ins_parts.append(td_operand)
                     reg_asm_parts.append(f"${field.name}")
+                    in_reg_ops.append(op_entry)
             elif field.role == FieldRole.IMMEDIATE:
                 if cimm:
                     # Schema uses split immediates → a single combined operand (added once)
                     if not imm_ins_parts:
                         imm_ins_parts.append(f"{cimm['operand_name']}:$imm")
                         imm_asm_parts.append("$imm")
+                        in_imm_ops.append({"name": "imm", "width": cimm["width"],
+                                           "signed": True})
                 else:
                     sign = "s" if field.is_signed else "u"
                     td_operand = f"{sign}imm{field.width}:${field.name}"
                     imm_ins_parts.append(td_operand)
                     imm_asm_parts.append(f"${field.name}")
+                    in_imm_ops.append({"name": field.name, "width": field.width,
+                                       "signed": field.is_signed})
 
         # Registers first, then immediates (matches LLVM convention and Pat<> result order).
         # The destination register(s) lead the assembly string: "add $rd, $rs1, $rs2".
@@ -219,6 +240,9 @@ def _build_instr_defs(isa_reg, ISA_upper: str,
             "outs": ", ".join(outs_parts),
             "ins": ", ".join(ins_parts),
             "asm_str": ", ".join(asm_parts),
+            "out_ops": out_ops,
+            "in_reg_ops": in_reg_ops,
+            "in_imm_ops": in_imm_ops,
             "is_terminator": dag_category in ("branch", "jump_ind", "jump_abs"),
             "is_branch": dag_category == "branch",
             "is_call": is_call,

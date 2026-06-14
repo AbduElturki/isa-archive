@@ -6,29 +6,8 @@
 #include <stdint.h>
 #include <assert.h>
 
-{% for instr in instructions.values() %}
-{%- set info = instr | instr_info(isa_reg) -%}
-/**
- * {{ instr.metadata.name }}: {{ instr.spec.behavior }}
- */
-static inline uint32_t isa_archive_{{ instr.metadata.name }}(
-    {%- for op in info.sorted_ops if op.name != "rd" -%}
-    uint32_t {{ op.name }}{% if not loop.last %}, {% endif %}
-    {%- endfor -%}
-) {
-    {%- for c in info.constraints %}
-    assert({{ c.c_expr }} && "{{ c.message }}");
-    {%- endfor %}
-    uint32_t rd;
-    asm volatile (
-        "{{ info.asm_str }}"
-        : "=r"(rd)
-        : {% for op in info.sorted_ops if op.name != "rd" -%}
-          "{{ op.constraint }}"({{ op.name }}){% if not loop.last %}, {% endif %}
-          {%- endfor %}
-    );
-    return rd;
-}
-{% endfor %}
+{% for code in intrinsics %}
+{{ code }}
 
+{% endfor %}
 #endif

@@ -41,11 +41,20 @@ assembles them:
 #include "pico32_intrinsics.h"
 ```
 
+Register and immediate operands are both wired from the instruction's
+operands. Instructions that take an immediate are emitted as function-like
+macros (C) or `const`-generic functions (Rust), so the immediate reaches the
+assembler as a literal. Instructions the compiler can't otherwise reach from
+plain C — those with no automatic code-generation pattern — are flagged in
+their doc comment, since the wrapper is the only way to call them.
+
 ## Current boundaries
 
-- The intrinsic wrappers are scaffolding for custom-instruction experiments:
-  review the operand constraints in the generated inline assembly before
-  relying on them in anger (register operands are wired; complex
-  immediate/memory operands may need hand-tuning for your use).
+- Wrappers cover operands that live in a single general-purpose register.
+  Instructions whose operands are floating-point or wider-than-word register
+  files (e.g. vector registers) are skipped, with a note on the console — they
+  need typed register classes or vector intrinsics, not a scalar asm wrapper.
+- Memory and branch-target immediates are wrapped as plain integer constants;
+  review the inline assembly before relying on them for those operand kinds.
 - Operand structs wider than standard C types carry a comment noting the
   packing caveat.
