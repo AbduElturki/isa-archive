@@ -1,0 +1,30 @@
+apiVersion: isa-archive/v1
+kind: ISA
+metadata:
+  name: pico32
+  description: >
+    Tutorial ISA, part 1 — the smallest pico32 that can print a character:
+    four instructions, one register file, a UART, and a power switch.
+spec:
+  version: "0.1"
+  xlen: 32
+  byte_order: little
+  includes:
+    - "*.yaml"
+
+  state:
+    registers:
+      - name: gpr
+        width: 32
+        count: 32
+        zero_register: 0      # r0 always reads as zero
+        canonical_prefix: r   # registers are named r0..r31
+
+  machine:
+    ram_base: 0x80000000
+    ram_size: 0x08000000      # 128 MiB
+    reset_vector: 0x80000000
+    qemu:
+      devices:
+        - { name: uart,     type: ns16550,     base: 0x10000000, irq: 10 }
+        - { name: poweroff, type: sifive_test, base: 0x00100000 }

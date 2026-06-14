@@ -1,0 +1,41 @@
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: ADD
+spec:
+  schema: SType
+  opcode: 0x01
+  behavior: "rd = rs1 + rs2"
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: SUB
+spec:
+  schema: SType
+  opcode: 0x02
+  behavior: "rd = rs1 - rs2"
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: VADD
+spec:
+  schema: VType
+  opcode: 0x20
+  description: 128-bit add (native __uint128_t in the QEMU model)
+  behavior: "vd = vs1 + vs2"
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: PSET_LT
+spec:
+  schema: PType
+  opcode: 0x10
+  description: Set predicate if rs1 < rs2 (unsigned)
+  behavior: |
+    if rs1 < rs2:
+        pd = 1
+    else:
+        pd = 0

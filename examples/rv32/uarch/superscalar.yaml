@@ -1,0 +1,60 @@
+apiVersion: isa-archive/v1
+kind: uArch
+metadata:
+  name: rv32im-superscalar
+  description: Dual-issue out-of-order superscalar for RV32IM with separate MulDiv unit
+spec:
+  isa: rv32im
+  state:
+    csrs:
+      - name: mcycle_impl
+        address: 0xB00
+        width: 64
+        reset_value: 0
+        fields:
+          - { name: count, start: 0, end: 63, access: rw, description: "Cycle counter" }
+      - name: minstret_impl
+        address: 0xB02
+        width: 64
+        reset_value: 0
+        fields:
+          - { name: count, start: 0, end: 63, access: rw, description: "Retired instruction counter" }
+      - name: rob_head
+        address: 0xBC0
+        width: 32
+        reset_value: 0
+        fields:
+          - { name: ptr,   start: 0,  end: 5,  access: ro, description: "Re-order buffer head pointer" }
+          - { name: full,  start: 6,  end: 6,  access: ro, description: "ROB full flag" }
+          - { name: empty, start: 7,  end: 7,  access: ro, description: "ROB empty flag" }
+  blocks:
+    - name: IntegerALU
+      count: 2          # dual ALU — enables two integer ops per cycle
+      latency: 1
+      pipelined: true
+      handles:
+        - alu_int
+        - alu_branch
+        - alu_jump
+
+    - name: ShiftUnit
+      count: 1
+      latency: 1
+      pipelined: true
+      handles:
+        - alu_shift
+
+    - name: MulDivUnit
+      count: 1
+      latency: 4        # pipelined multiplier, non-pipelined divider
+      pipelined: true
+      handles:
+        - mul_div
+
+    - name: LoadStoreUnit
+      count: 1
+      latency: 4        # L1 hit: AGU + SRAM + align + writeback
+      pipelined: true
+      handles:
+        - mem_load
+        - mem_store

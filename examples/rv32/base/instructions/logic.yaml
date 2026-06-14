@@ -1,0 +1,79 @@
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: AND
+spec:
+  schema: RType
+  exec_type: alu_int
+  opcode: OP
+  funct3: F3_ALU.AND
+  funct7: F7_ALU.BASE
+  behavior: "rd = rs1 & rs2"
+  description: "rd ← rs1 AND rs2"
+
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: OR
+spec:
+  schema: RType
+  exec_type: alu_int
+  opcode: OP
+  funct3: F3_ALU.OR
+  funct7: F7_ALU.BASE
+  behavior: "rd = rs1 | rs2"
+  description: "rd ← rs1 OR rs2"
+
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: XOR
+spec:
+  schema: RType
+  exec_type: alu_int
+  opcode: OP
+  funct3: F3_ALU.XOR
+  funct7: F7_ALU.BASE
+  behavior: "rd = rs1 ^ rs2"
+  description: "rd ← rs1 XOR rs2"
+
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: ANDI
+spec:
+  schema: ITypeALU
+  exec_type: alu_int
+  opcode: OP_IMM
+  funct3: F3_ALU.AND
+  behavior: "rd = rs1 & imm"
+  description: "rd ← rs1 AND sext(imm)"
+
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: ORI
+spec:
+  schema: ITypeALU
+  exec_type: alu_int
+  opcode: OP_IMM
+  funct3: F3_ALU.OR
+  behavior: "rd = rs1 | imm"
+  description: "rd ← rs1 OR sext(imm)"
+
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: XORI
+spec:
+  schema: ITypeALU
+  exec_type: alu_int
+  opcode: OP_IMM
+  funct3: F3_ALU.XOR
+  behavior: "rd = rs1 ^ imm"
+  description: "rd ← rs1 XOR sext(imm)"

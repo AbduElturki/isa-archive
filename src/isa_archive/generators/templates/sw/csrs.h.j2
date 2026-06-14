@@ -1,0 +1,14 @@
+#ifndef {{ isa_name | upper }}_CSRS_H
+#define {{ isa_name | upper }}_CSRS_H
+
+{% for csr in csrs.values() %}
+// {{ csr.metadata.name }}
+#define CSR_{{ csr.metadata.name | upper }} {{ hex(csr.spec.address) }}
+{%- for field in csr.spec.fields %}
+#define CSR_{{ csr.metadata.name | upper }}_{{ field.name | upper }}_START {{ field.start }}
+#define CSR_{{ csr.metadata.name | upper }}_{{ field.name | upper }}_END {{ field.end }}
+#define CSR_{{ csr.metadata.name | upper }}_{{ field.name | upper }}_MASK {{ field.start | calculate_mask(field.end) }}
+{%- endfor %}
+{% endfor %}
+
+#endif

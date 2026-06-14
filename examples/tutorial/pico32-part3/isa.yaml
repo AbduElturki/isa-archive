@@ -1,0 +1,66 @@
+apiVersion: isa-archive/v1
+kind: ISA
+metadata:
+  name: pico32
+  description: >
+    Tutorial ISA, part 3 — the same 13 instructions as part 2, now with
+    everything a C compiler needs: ABI register names, compiler roles,
+    a target profile, and an object-format identity.
+spec:
+  version: "0.3"
+  xlen: 32
+  byte_order: little
+
+  # ── What the compiler backend is for ────────────────────────────────
+  compiler:
+    profile: c-baremetal      # require the full freestanding-C contract
+
+  # ── Object-format identity ──────────────────────────────────────────
+  # pico32 reuses RISC-V field placements, so it can register under the
+  # riscv32 triple and reuse its relocations — this is what lets a stock
+  # linker link pico32 objects. See the tutorial for the full story.
+  triple_arch: riscv32
+  elf_machine: 243            # EM_RISCV
+  nop_encoding: "00000013"    # ADDI r0, r0, 0
+
+  includes:
+    - "schemas.yaml"
+    - "constants.yaml"
+    - "instructions/*.yaml"
+
+  state:
+    registers:
+      - name: gpr
+        width: 32
+        count: 32
+        zero_register: 0
+        canonical_prefix: r
+        aliases:              # ABI names — the compiler builds on these
+          zero: 0             # hardwired zero
+          ra:   1             # return address
+          sp:   2             # stack pointer
+          t0:   5             # temporaries
+          t1:   6
+          t2:   7
+          s0:   8             # saved registers / frame pointer
+          s1:   9
+          a0:   10            # arguments / return values
+          a1:   11
+          a2:   12
+          a3:   13
+
+  abi:
+    stack_alignment: 16
+    arg_registers: [a0, a1, a2, a3]
+    ret_registers: [a0, a1]
+    callee_saved: [ra, sp, s0, s1]
+    frame_pointer: s0
+
+  machine:
+    ram_base: 0x80000000
+    ram_size: 0x08000000
+    reset_vector: 0x80000000
+    qemu:
+      devices:
+        - { name: uart,     type: ns16550,     base: 0x10000000, irq: 10 }
+        - { name: poweroff, type: sifive_test, base: 0x00100000 }

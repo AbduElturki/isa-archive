@@ -1,0 +1,18 @@
+apiVersion: isa-archive/v1
+kind: uArch
+metadata:
+  name: pico32-tiny
+  description: Single-issue in-order chassis for pico32
+spec:
+  isa: pico32
+  blocks:
+    - name: IntegerALU
+      count: 1
+      latency: 1
+      pipelined: true
+      handles: [alu_int, alu_branch, alu_jump]
+    - name: LoadStoreUnit
+      count: 1
+      latency: 2
+      pipelined: true
+      handles: [mem_load, mem_store]

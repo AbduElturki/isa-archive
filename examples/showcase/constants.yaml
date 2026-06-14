@@ -1,0 +1,86 @@
+# Opcodes (8-bit) and sub-function enums for the showcase ISA.
+apiVersion: isa-archive/v1
+kind: Constant
+metadata: { name: OP_R }
+spec: { value: 0x01, width: 8 }
+---
+apiVersion: isa-archive/v1
+kind: Constant
+metadata: { name: OP_I }
+spec: { value: 0x02, width: 8 }
+---
+apiVersion: isa-archive/v1
+kind: Constant
+metadata: { name: OP_IU }
+spec: { value: 0x03, width: 8 }
+---
+apiVersion: isa-archive/v1
+kind: Constant
+metadata: { name: OP_SHIFT }
+spec: { value: 0x04, width: 8 }
+---
+apiVersion: isa-archive/v1
+kind: Constant
+metadata: { name: OP_LUI }
+spec: { value: 0x05, width: 8 }
+---
+apiVersion: isa-archive/v1
+kind: Constant
+metadata: { name: OP_LOAD }
+spec: { value: 0x06, width: 8 }
+---
+apiVersion: isa-archive/v1
+kind: Constant
+metadata: { name: OP_STORE }
+spec: { value: 0x07, width: 8 }
+---
+apiVersion: isa-archive/v1
+kind: Constant
+metadata: { name: OP_BRANCH }
+spec: { value: 0x08, width: 8 }
+---
+apiVersion: isa-archive/v1
+kind: Constant
+metadata: { name: OP_JAL }
+spec: { value: 0x09, width: 8 }
+---
+apiVersion: isa-archive/v1
+kind: Constant
+metadata: { name: OP_JALR }
+spec: { value: 0x0A, width: 8 }
+---
+apiVersion: isa-archive/v1
+kind: Constant
+metadata: { name: OP_FR }
+spec: { value: 0x0B, width: 8 }
+---
+apiVersion: isa-archive/v1
+kind: Constant
+metadata: { name: OP_FLOAD }
+spec: { value: 0x0C, width: 8 }
+---
+apiVersion: isa-archive/v1
+kind: Constant
+metadata: { name: OP_FSTORE }
+spec: { value: 0x0D, width: 8 }
+---
+apiVersion: isa-archive/v1
+kind: Enum
+metadata: { name: F_ALU }
+spec:
+  width: 6
+  values: { ADD: 0, SUB: 1, AND: 2, OR: 3, XOR: 4, SLL: 5, SRL: 6, SLT: 7, SLTU: 8 }
+---
+apiVersion: isa-archive/v1
+kind: Enum
+metadata: { name: F_BR }
+spec:
+  width: 6
+  values: { EQ: 0, NE: 1 }
+---
+apiVersion: isa-archive/v1
+kind: Enum
+metadata: { name: F_FP }
+spec:
+  width: 6
+  values: { ADD_S: 0, SUB_S: 1, MUL_S: 2, DIV_S: 3, ADD_D: 4, SUB_D: 5, MUL_D: 6, DIV_D: 7 }

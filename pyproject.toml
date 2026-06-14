@@ -1,0 +1,34 @@
+[project]
+name = "isa-archive"
+version = "0.1.0"
+description = "Modern ISA & Hardware Generator CLI"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "typer>=0.12.0",
+    "pydantic>=2.7.0",
+    "pyyaml>=6.0.0",
+    "jinja2>=3.1.0",
+    "weasyprint>=68.1",
+]
+
+[project.scripts]
+isa-archive = "isa_archive.cli:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/isa_archive"]
+
+[tool.uv]
+managed = true
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

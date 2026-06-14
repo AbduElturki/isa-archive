@@ -1,0 +1,166 @@
+# Showcase ISA — uniform 64-bit instruction word.
+# Common low fields: opcode[0:8], rd[8:13], rs1[13:18], rs2[18:23].
+# Upper bits (29..63) are reserved/zero unless used by an immediate.
+
+apiVersion: isa-archive/v1
+kind: Schema
+metadata: { name: RType }
+spec:
+  length: 64
+  compiler: { roles: [alu_rr] }
+  fields:
+    - { name: opcode, start: 0,  width: 8, role: opcode }
+    - { name: rd,     start: 8,  width: 5, role: register, type: gpr }
+    - { name: rs1,    start: 13, width: 5, role: register, type: gpr }
+    - { name: rs2,    start: 18, width: 5, role: register, type: gpr }
+    - { name: funct,  start: 23, width: 6, role: constant, type: enum.F_ALU }
+
+---
+apiVersion: isa-archive/v1
+kind: Schema
+metadata: { name: ITypeALU }
+spec:
+  length: 64
+  fields:
+    - { name: opcode, start: 0,  width: 8,  role: opcode }
+    - { name: rd,     start: 8,  width: 5,  role: register, type: gpr }
+    - { name: rs1,    start: 13, width: 5,  role: register, type: gpr }
+    - { name: funct,  start: 18, width: 6,  role: constant, type: enum.F_ALU }
+    - { name: imm,    start: 24, width: 16, role: immediate, type: signed }
+
+---
+apiVersion: isa-archive/v1
+kind: Schema
+metadata: { name: ITypeALU_U }
+spec:
+  length: 64
+  fields:
+    - { name: opcode, start: 0,  width: 8,  role: opcode }
+    - { name: rd,     start: 8,  width: 5,  role: register, type: gpr }
+    - { name: rs1,    start: 13, width: 5,  role: register, type: gpr }
+    - { name: funct,  start: 18, width: 6,  role: constant, type: enum.F_ALU }
+    - { name: imm,    start: 24, width: 16, role: immediate, type: unsigned }
+
+---
+apiVersion: isa-archive/v1
+kind: Schema
+metadata: { name: IShift }
+spec:
+  length: 64
+  fields:
+    - { name: opcode, start: 0,  width: 8, role: opcode }
+    - { name: rd,     start: 8,  width: 5, role: register, type: gpr }
+    - { name: rs1,    start: 13, width: 5, role: register, type: gpr }
+    - { name: shamt,  start: 18, width: 5, role: immediate }
+    - { name: funct,  start: 23, width: 6, role: constant, type: enum.F_ALU }
+
+---
+apiVersion: isa-archive/v1
+kind: Schema
+metadata: { name: UType }
+spec:
+  length: 64
+  fields:
+    - { name: opcode, start: 0,  width: 8,  role: opcode }
+    - { name: rd,     start: 8,  width: 5,  role: register, type: gpr }
+    - { name: imm,    start: 18, width: 16, role: immediate, type: unsigned }
+
+---
+apiVersion: isa-archive/v1
+kind: Schema
+metadata: { name: LoadType }
+spec:
+  length: 64
+  fields:
+    - { name: opcode, start: 0,  width: 8,  role: opcode }
+    - { name: rd,     start: 8,  width: 5,  role: register, type: gpr }
+    - { name: rs1,    start: 13, width: 5,  role: register, type: gpr }
+    - { name: imm,    start: 18, width: 16, role: immediate, type: signed }
+
+---
+apiVersion: isa-archive/v1
+kind: Schema
+metadata: { name: StoreType }
+spec:
+  length: 64
+  fields:
+    - { name: opcode, start: 0,  width: 8,  role: opcode }
+    - { name: rs1,    start: 13, width: 5,  role: register, type: gpr }
+    - { name: rs2,    start: 18, width: 5,  role: register, type: gpr }
+    - { name: imm,    start: 23, width: 16, role: immediate, type: signed }
+
+---
+apiVersion: isa-archive/v1
+kind: Schema
+metadata: { name: BType }
+spec:
+  length: 64
+  compiler: { roles: [branch] }
+  fields:
+    - { name: opcode,   start: 0,  width: 8, role: opcode }
+    - { name: rs1,      start: 13, width: 5, role: register, type: gpr }
+    - { name: rs2,      start: 18, width: 5, role: register, type: gpr }
+    - { name: funct,    start: 23, width: 6, role: constant, type: enum.F_BR }
+    - { name: imm_6_1,  start: 29, width: 6, role: immediate }
+    - { name: imm_12_7, start: 35, width: 6, role: immediate }
+
+---
+apiVersion: isa-archive/v1
+kind: Schema
+metadata: { name: JType }
+spec:
+  length: 64
+  fields:
+    - { name: opcode,    start: 0,  width: 8,  role: opcode }
+    - { name: rd,        start: 8,  width: 5,  role: register, type: gpr }
+    - { name: imm_10_1,  start: 13, width: 10, role: immediate }
+    - { name: imm_20_11, start: 23, width: 10, role: immediate }
+
+---
+apiVersion: isa-archive/v1
+kind: Schema
+metadata: { name: JALRType }
+spec:
+  length: 64
+  fields:
+    - { name: opcode, start: 0,  width: 8,  role: opcode }
+    - { name: rd,     start: 8,  width: 5,  role: register, type: gpr }
+    - { name: rs1,    start: 13, width: 5,  role: register, type: gpr }
+    - { name: imm,    start: 18, width: 16, role: immediate, type: signed }
+
+---
+apiVersion: isa-archive/v1
+kind: Schema
+metadata: { name: FRType }
+spec:
+  length: 64
+  fields:
+    - { name: opcode, start: 0,  width: 8, role: opcode }
+    - { name: rd,     start: 8,  width: 5, role: register, type: fpr }
+    - { name: rs1,    start: 13, width: 5, role: register, type: fpr }
+    - { name: rs2,    start: 18, width: 5, role: register, type: fpr }
+    - { name: funct,  start: 23, width: 6, role: constant, type: enum.F_FP }
+
+---
+apiVersion: isa-archive/v1
+kind: Schema
+metadata: { name: FLoadType }
+spec:
+  length: 64
+  fields:
+    - { name: opcode, start: 0,  width: 8,  role: opcode }
+    - { name: rd,     start: 8,  width: 5,  role: register, type: fpr }
+    - { name: rs1,    start: 13, width: 5,  role: register, type: gpr }
+    - { name: imm,    start: 18, width: 16, role: immediate, type: signed }
+
+---
+apiVersion: isa-archive/v1
+kind: Schema
+metadata: { name: FStoreType }
+spec:
+  length: 64
+  fields:
+    - { name: opcode, start: 0,  width: 8,  role: opcode }
+    - { name: rs1,    start: 13, width: 5,  role: register, type: gpr }
+    - { name: rs2,    start: 18, width: 5,  role: register, type: fpr }
+    - { name: imm,    start: 23, width: 16, role: immediate, type: signed }

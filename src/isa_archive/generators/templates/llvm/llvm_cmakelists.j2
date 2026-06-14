@@ -1,0 +1,46 @@
+add_llvm_component_group({{ ISA }})
+
+set(LLVM_TARGET_DEFINITIONS {{ ISA }}.td)
+
+tablegen(LLVM {{ ISA }}GenRegisterInfo.inc    -gen-register-info)
+tablegen(LLVM {{ ISA }}GenInstrInfo.inc       -gen-instr-info)
+tablegen(LLVM {{ ISA }}GenSubtargetInfo.inc   -gen-subtarget)
+tablegen(LLVM {{ ISA }}GenCallingConv.inc     -gen-callingconv)
+tablegen(LLVM {{ ISA }}GenAsmWriter.inc       -gen-asm-writer)
+tablegen(LLVM {{ ISA }}GenDAGISel.inc         -gen-dag-isel)
+tablegen(LLVM {{ ISA }}GenMCCodeEmitter.inc   -gen-emitter)
+tablegen(LLVM {{ ISA }}GenMCPseudoLowering.inc -gen-pseudo-lowering)
+
+add_public_tablegen_target({{ ISA }}CommonTableGen)
+
+add_llvm_target({{ ISA }}CodeGen
+  {{ ISA }}AsmPrinter.cpp
+  {{ ISA }}FrameLowering.cpp
+  {{ ISA }}InstrInfo.cpp
+  {{ ISA }}ISelDAGToDAG.cpp
+  {{ ISA }}ISelLowering.cpp
+  {{ ISA }}RegisterInfo.cpp
+  {{ ISA }}Subtarget.cpp
+  {{ ISA }}TargetMachine.cpp
+
+  LINK_COMPONENTS
+  Analysis
+  AsmPrinter
+  CodeGen
+  CodeGenTypes
+  Core
+  MC
+  SelectionDAG
+  Support
+  Target
+  TargetParser
+  TransformUtils
+  {{ ISA }}Desc
+  {{ ISA }}Info
+
+  ADD_TO_COMPONENT
+  {{ ISA }}
+)
+
+add_subdirectory(MCTargetDesc)
+add_subdirectory(TargetInfo)

@@ -1,0 +1,54 @@
+# pico32 instructions (part 1) — just enough to print a character:
+# build an address (LUI + ADDI), put a byte somewhere (SW), and ADD because
+# every CPU since the dawn of time has had an ADD.
+
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: ADD
+  description: Integer addition
+spec:
+  schema: RType
+  opcode: 0x33
+  funct3: 0
+  funct7: 0
+  behavior: "rd = rs1 + rs2"
+  description: "rd ← rs1 + rs2"
+
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: ADDI
+  description: Add a sign-extended 12-bit immediate
+spec:
+  schema: ITypeALU
+  opcode: 0x13
+  funct3: 0
+  behavior: "rd = rs1 + imm"
+  description: "rd ← rs1 + sext(imm)"
+
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: LUI
+  description: Load upper immediate — set the top 20 bits of a register
+spec:
+  schema: UType
+  opcode: 0x37
+  behavior: "rd = zext(imm) << 12"
+  description: "rd ← imm << 12"
+
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: SW
+  description: Store a 32-bit word
+spec:
+  schema: SType
+  opcode: 0x23
+  funct3: 2
+  behavior: "mem32[rs1 + {imm_11_5, imm_4_0}] = rs2"
+  description: "mem[rs1 + sext(offset)] ← rs2"

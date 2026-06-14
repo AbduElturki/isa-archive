@@ -1,0 +1,17 @@
+add_llvm_component_library(LLVM{{ ISA }}Desc
+  {{ ISA }}AsmBackend.cpp
+  {{ ISA }}ELFObjectWriter.cpp
+  {{ ISA }}MCAsmInfo.cpp
+  {{ ISA }}MCCodeEmitter.cpp
+  {{ ISA }}MCTargetDesc.cpp
+  {{ ISA }}InstPrinter.cpp
+
+  LINK_COMPONENTS
+  MC
+  Support
+  TargetParser
+  {{ ISA }}Info
+
+  ADD_TO_COMPONENT
+  {{ ISA }}
+)

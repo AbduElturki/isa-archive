@@ -1,0 +1,32 @@
+apiVersion: isa-archive/v1
+kind: ISA
+metadata:
+  name: pico32
+  description: >
+    Tutorial ISA, part 2 — a real instruction set: ALU ops, loads and stores,
+    conditional branches, and jumps. Enough to write loops in assembly.
+spec:
+  version: "0.2"
+  xlen: 32
+  byte_order: little
+  includes:
+    - "schemas.yaml"
+    - "constants.yaml"
+    - "instructions/*.yaml"
+
+  state:
+    registers:
+      - name: gpr
+        width: 32
+        count: 32
+        zero_register: 0
+        canonical_prefix: r
+
+  machine:
+    ram_base: 0x80000000
+    ram_size: 0x08000000
+    reset_vector: 0x80000000
+    qemu:
+      devices:
+        - { name: uart,     type: ns16550,     base: 0x10000000, irq: 10 }
+        - { name: poweroff, type: sifive_test, base: 0x00100000 }

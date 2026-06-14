@@ -1,0 +1,98 @@
+# Conditional branch instructions.
+# The branch offset is scrambled across four B-type immediate fields. It is
+# reassembled with bit concatenation; bit 0 is always 0 (2-byte alignment).
+
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: BEQ
+  description: Branch if equal
+spec:
+  schema: BType
+  exec_type: alu_branch
+  opcode: BRANCH
+  funct3: F3_BRANCH.BEQ
+  behavior: |
+    if rs1 == rs2:
+      pc = pc + sext({imm_12, imm_11, imm_10_5, imm_4_1, 0}, 13)
+  description: "if rs1 == rs2: pc ← pc + sext(offset)"
+
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: BNE
+  description: Branch if not equal
+spec:
+  schema: BType
+  exec_type: alu_branch
+  opcode: BRANCH
+  funct3: F3_BRANCH.BNE
+  behavior: |
+    if rs1 != rs2:
+      pc = pc + sext({imm_12, imm_11, imm_10_5, imm_4_1, 0}, 13)
+  description: "if rs1 != rs2: pc ← pc + sext(offset)"
+
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: BLT
+  description: Branch if less than (signed)
+spec:
+  schema: BType
+  exec_type: alu_branch
+  opcode: BRANCH
+  funct3: F3_BRANCH.BLT
+  behavior: |
+    if signed(rs1) < signed(rs2):
+      pc = pc + sext({imm_12, imm_11, imm_10_5, imm_4_1, 0}, 13)
+  description: "if (signed)rs1 < (signed)rs2: pc ← pc + sext(offset)"
+
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: BGE
+  description: Branch if greater or equal (signed)
+spec:
+  schema: BType
+  exec_type: alu_branch
+  opcode: BRANCH
+  funct3: F3_BRANCH.BGE
+  behavior: |
+    if signed(rs1) >= signed(rs2):
+      pc = pc + sext({imm_12, imm_11, imm_10_5, imm_4_1, 0}, 13)
+  description: "if (signed)rs1 >= (signed)rs2: pc ← pc + sext(offset)"
+
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: BLTU
+  description: Branch if less than (unsigned)
+spec:
+  schema: BType
+  exec_type: alu_branch
+  opcode: BRANCH
+  funct3: F3_BRANCH.BLTU
+  behavior: |
+    if rs1 < rs2:
+      pc = pc + sext({imm_12, imm_11, imm_10_5, imm_4_1, 0}, 13)
+  description: "if (unsigned)rs1 < (unsigned)rs2: pc ← pc + sext(offset)"
+
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: BGEU
+  description: Branch if greater or equal (unsigned)
+spec:
+  schema: BType
+  exec_type: alu_branch
+  opcode: BRANCH
+  funct3: F3_BRANCH.BGEU
+  behavior: |
+    if rs1 >= rs2:
+      pc = pc + sext({imm_12, imm_11, imm_10_5, imm_4_1, 0}, 13)
+  description: "if (unsigned)rs1 >= (unsigned)rs2: pc ← pc + sext(offset)"

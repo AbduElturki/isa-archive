@@ -1,0 +1,38 @@
+apiVersion: isa-archive/v1
+kind: Schema
+metadata:
+  name: SType
+spec:
+  length: 64
+  fields:
+    - {name: opcode, start: 0,  width: 8,  role: opcode}
+    - {name: rd,     start: 8,  width: 4,  role: register, type: gpr}
+    - {name: rs1,    start: 12, width: 4,  role: register, type: gpr}
+    - {name: rs2,    start: 16, width: 4,  role: register, type: gpr}
+    - {name: pad,    start: 20, width: 44, role: reserved}
+---
+apiVersion: isa-archive/v1
+kind: Schema
+metadata:
+  name: VType
+spec:
+  length: 64
+  fields:
+    - {name: opcode, start: 0,  width: 8,  role: opcode}
+    - {name: vd,     start: 8,  width: 4,  role: register, type: vreg}
+    - {name: vs1,    start: 12, width: 4,  role: register, type: vreg}
+    - {name: vs2,    start: 16, width: 4,  role: register, type: vreg}
+    - {name: pad,    start: 20, width: 44, role: reserved}
+---
+apiVersion: isa-archive/v1
+kind: Schema
+metadata:
+  name: PType
+spec:
+  length: 64
+  fields:
+    - {name: opcode, start: 0,  width: 8,  role: opcode}
+    - {name: pd,     start: 8,  width: 3,  role: register, type: preg}
+    - {name: rs1,    start: 11, width: 4,  role: register, type: gpr}
+    - {name: rs2,    start: 15, width: 4,  role: register, type: gpr}
+    - {name: pad,    start: 19, width: 45, role: reserved}

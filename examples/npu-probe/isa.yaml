@@ -1,0 +1,28 @@
+apiVersion: isa-archive/v1
+kind: ISA
+metadata:
+  name: npu-probe
+  description: >
+    Generality probe: an accelerator-style ISA that deliberately exercises the
+    non-CPU paths of the generators. Big-endian, 64-bit instruction words, a
+    128-bit vector register file (state only), a 1-bit predicate file, and a
+    scalar file with no ABI aliases.
+spec:
+  version: "1.0"
+  xlen: 32
+  byte_order: big
+  compiler:
+    profile: kernel-only   # compute target: no stack, no calls, no C lowering
+  includes:
+    - "*.yaml"
+  state:
+    registers:
+      - name: gpr
+        width: 32
+        count: 16
+      - name: vreg          # 128-bit: byte-array state in QEMU, no LLVM class
+        width: 128
+        count: 16
+      - name: preg          # 1-bit predicates: helper-only, masked writes
+        width: 1
+        count: 8

@@ -1,0 +1,26 @@
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: LW
+  description: Load a 32-bit word
+spec:
+  schema: ITypeLoad
+  exec_type: mem_load
+  opcode: LOAD
+  funct3: F3_MEM.WORD
+  behavior: "rd = mem32[rs1 + imm]"
+  description: "rd ← mem[rs1 + sext(imm)]"
+
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: SW
+  description: Store a 32-bit word
+spec:
+  schema: SType
+  exec_type: mem_store
+  opcode: STORE
+  funct3: F3_MEM.WORD
+  behavior: "mem32[rs1 + {imm_11_5, imm_4_0}] = rs2"
+  description: "mem[rs1 + sext(offset)] ← rs2"

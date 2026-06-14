@@ -1,0 +1,76 @@
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: ADD
+  description: Integer addition
+spec:
+  schema: RType
+  exec_type: alu_int
+  opcode: OP
+  funct3: F3_ALU.ADD_SUB
+  funct7: F7_ALU.BASE
+  behavior: "rd = rs1 + rs2"
+  description: "rd ← rs1 + rs2"
+
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: SUB
+  description: Integer subtraction
+spec:
+  schema: RType
+  exec_type: alu_int
+  opcode: OP
+  funct3: F3_ALU.ADD_SUB
+  funct7: F7_ALU.ALT
+  behavior: "rd = rs1 - rs2"
+  description: "rd ← rs1 − rs2"
+
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: OR
+  description: Bitwise OR
+spec:
+  schema: RType
+  exec_type: alu_int
+  opcode: OP
+  funct3: F3_ALU.OR
+  funct7: F7_ALU.BASE
+  behavior: "rd = rs1 | rs2"
+  description: "rd ← rs1 | rs2"
+
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: ADDI
+  description: Add a sign-extended 12-bit immediate
+spec:
+  schema: ITypeALU
+  exec_type: alu_int
+  opcode: OP_IMM
+  funct3: F3_ALU.ADD_SUB
+  behavior: "rd = rs1 + imm"
+  description: "rd ← rs1 + sext(imm)"
+  compiler:
+    # alu_ri.add is inferred from the behavior; these tag the extra duties:
+    # the low half of constants/addresses, and stack-pointer adjustment.
+    roles: [const.lo, global.lo, frame.sp_adjust]
+
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: LUI
+  description: Load upper immediate — set the top 20 bits of a register
+spec:
+  schema: UType
+  exec_type: alu_int
+  opcode: LUI_OP
+  behavior: "rd = zext(imm) << 12"
+  description: "rd ← imm << 12"
+  compiler:
+    roles: [const.hi, global.hi]   # the high half of constants and addresses

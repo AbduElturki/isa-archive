@@ -1,0 +1,13 @@
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: MUL
+  description: Integer multiplication (low 32 bits)
+spec:
+  schema: RType
+  exec_type: mul_int
+  opcode: OP
+  funct3: F3_ALU.ADD_SUB
+  funct7: F7_ALU.MULDIV
+  behavior: "rd = rs1 * rs2"
+  description: "rd ← (rs1 × rs2)[31:0]"

@@ -1,0 +1,12 @@
+{% for csr in csrs.values() %}
+pub mod {{ csr.metadata.name | lower }} {
+    pub const ADDRESS: u16 = {{ hex(csr.spec.address) }};
+    {%- for field in csr.spec.fields %}
+    pub mod {{ field.name | lower }} {
+        pub const START: u8 = {{ field.start }};
+        pub const END: u8 = {{ field.end }};
+        pub const MASK: u32 = {{ field.start | calculate_mask(field.end) }};
+    }
+    {%- endfor %}
+}
+{% endfor %}

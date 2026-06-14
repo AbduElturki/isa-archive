@@ -1,0 +1,78 @@
+apiVersion: isa-archive/v1
+kind: ISA
+metadata:
+  name: minimips
+  description: >
+    A MIPS-flavored 32-bit integer ISA used to prove that the isa-archive
+    compiler/functional-model pipeline is not RISC-V-specific. It differs from
+    the rv32i example in the dimensions a real experiment is most likely to vary:
+      * an r-prefixed register file with MIPS ABI names (zero, v0, a0, t0, sp, ra …)
+      * a LUI+ORI constant-materialization strategy (hi_lo_or, zero-extended low)
+    It deliberately reuses rv32i's proven encoding/relocation shapes (triple
+    riscv32, R_RISCV relocations) so the generated backend links and runs with the
+    same toolchain path — the point being that the YAML drives the register file,
+    ABI, and constant strategy, none of which are hardcoded.
+spec:
+  version: "1.0"
+  xlen: 32
+  triple_arch: riscv32        # reuse a Triple LLVM already knows (no Triple.cpp patching)
+  elf_machine: 243            # EM_RISCV — reuse the proven relocation/linker path
+  byte_order: little
+  state:
+    registers:
+      - name: gpr
+        width: 32
+        count: 32
+        zero_register: 0
+        canonical_prefix: r          # r0..r31 (vs RISC-V x0..x31)
+        aliases:
+          zero: 0
+          at:   1
+          v0:   2    # return values
+          v1:   3
+          a0:   4    # arguments
+          a1:   5
+          a2:   6
+          a3:   7
+          t0:   8    # temporaries
+          t1:   9
+          t2:   10
+          t3:   11
+          t4:   12
+          t5:   13
+          t6:   14
+          t7:   15
+          s0:   16   # callee-saved
+          s1:   17
+          s2:   18
+          s3:   19
+          s4:   20
+          s5:   21
+          s6:   22
+          s7:   23
+          t8:   24
+          t9:   25
+          k0:   26
+          k1:   27
+          gp:   28   # global pointer
+          sp:   29   # stack pointer
+          fp:   30   # frame pointer (s8)
+          ra:   31   # return address
+  includes:
+    - "constants.yaml"
+    - "schemas.yaml"
+    - "instructions/*.yaml"
+  abi:
+    stack_alignment: 8
+    arg_registers:    [a0, a1, a2, a3]
+    ret_registers:    [v0, v1]
+    callee_saved:     [ra, sp, gp, fp, s0, s1, s2, s3, s4, s5, s6, s7]
+    frame_pointer:    fp
+  machine:
+    ram_base: 0x80000000
+    ram_size: 0x08000000
+    reset_vector: 0x80000000
+    qemu:
+      devices:
+        - { name: uart,     type: ns16550,    base: 0x10000000, irq: 10 }
+        - { name: test_dev, type: sifive_test, base: 0x00100000 }

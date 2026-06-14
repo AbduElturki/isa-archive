@@ -1,0 +1,37 @@
+# Unconditional jump instructions.
+# Both save the return address (pc+4) to rd before updating pc — making them
+# unconditional jumps detected as is_unconditional_jump by the generator,
+# which emits DISAS_NORETURN in the QEMU translation function.
+
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: JAL
+  description: Jump and link — PC-relative unconditional jump
+spec:
+  schema: JType
+  exec_type: alu_jump
+  opcode: JAL_OP
+  behavior: |
+    rd = pc + 4
+    pc = pc + sext({imm_20, imm_19_12, imm_11, imm_10_1, 0}, 21)
+  description: "rd ← pc+4;  pc ← pc + sext(offset)"
+  compiler:
+    roles: [control.jump, control.call]
+
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: JALR
+  description: Jump and link register — register-indirect unconditional jump
+spec:
+  schema: ITypeJALR
+  exec_type: alu_jump
+  opcode: JALR_OP
+  behavior: |
+    rd = pc + 4
+    pc = rs1 + imm
+  description: "rd ← pc+4;  pc ← (rs1 + sext(imm)) & ~1"
+  compiler:
+    roles: [control.call_indirect, control.ret]

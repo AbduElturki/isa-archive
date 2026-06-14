@@ -1,0 +1,45 @@
+apiVersion: isa-archive/v1
+kind: uArch
+metadata:
+  name: rv32i-classic
+  description: Classic 5-stage in-order single-issue pipeline for RV32I
+spec:
+  isa: rv32i
+  state:
+    csrs:
+      - name: mcycle_impl
+        address: 0xB00
+        width: 64
+        reset_value: 0
+        fields:
+          - { name: count, start: 0, end: 63, access: rw, description: "Hardware cycle counter" }
+      - name: minstret_impl
+        address: 0xB02
+        width: 64
+        reset_value: 0
+        fields:
+          - { name: count, start: 0, end: 63, access: rw, description: "Hardware retired-instruction counter" }
+  blocks:
+    - name: IntegerALU
+      count: 1
+      latency: 1
+      pipelined: true
+      handles:
+        - alu_int
+        - alu_branch
+        - alu_jump
+
+    - name: ShiftUnit
+      count: 1
+      latency: 1
+      pipelined: true
+      handles:
+        - alu_shift
+
+    - name: LoadStoreUnit
+      count: 1
+      latency: 3      # L1 cache hit: 1 address + 1 SRAM + 1 align/sign-extend
+      pipelined: true
+      handles:
+        - mem_load
+        - mem_store

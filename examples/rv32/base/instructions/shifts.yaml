@@ -1,0 +1,62 @@
+# Shift instructions use IShiftType (shamt in bits [24:20], funct7 in [31:25])
+# so the shift amount is explicitly 5 bits and the variant (logical/arithmetic)
+# is encoded in funct7. Register-register shifts use the bottom 5 bits of rs2.
+
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: SLL
+  description: Shift left logical (register)
+spec:
+  schema: RType
+  exec_type: alu_shift
+  opcode: OP
+  funct3: F3_ALU.SLL
+  funct7: F7_ALU.BASE
+  behavior: "rd = rs1 << rs2[0:5]"
+  description: "rd ← rs1 << rs2[4:0]"
+
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: SRL
+  description: Shift right logical (register)
+spec:
+  schema: RType
+  exec_type: alu_shift
+  opcode: OP
+  funct3: F3_ALU.SR
+  funct7: F7_ALU.BASE
+  behavior: "rd = rs1 >> rs2[0:5]"
+  description: "rd ← rs1 >> rs2[4:0]  (zero-fill)"
+
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: SLLI
+  description: Shift left logical by immediate
+spec:
+  schema: IShiftType
+  exec_type: alu_shift
+  opcode: OP_IMM
+  funct3: F3_ALU.SLL
+  funct7: F7_ALU.BASE
+  behavior: "rd = rs1 << shamt"
+  description: "rd ← rs1 << shamt[4:0]"
+
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: SRLI
+  description: Shift right logical by immediate
+spec:
+  schema: IShiftType
+  exec_type: alu_shift
+  opcode: OP_IMM
+  funct3: F3_ALU.SR
+  funct7: F7_ALU.BASE
+  behavior: "rd = rs1 >> shamt"
+  description: "rd ← rs1 >> shamt[4:0]  (zero-fill)"

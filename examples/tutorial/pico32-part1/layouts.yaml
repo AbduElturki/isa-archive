@@ -1,0 +1,65 @@
+# pico32 instruction layouts (part 1).
+#
+# Field placements follow the RISC-V convention (opcode in bits 0-6, rd in
+# 7-11, rs1 in 15-19, rs2 in 20-24). Keeping these placements is what lets
+# part 3 of the tutorial link C programs with a stock linker — see the
+# tutorial for the full story. Everything else about pico32 is ours.
+
+apiVersion: isa-archive/v1
+kind: Schema
+metadata:
+  name: RType
+  description: Register-register — rd ← rs1 op rs2
+spec:
+  length: 32
+  fields:
+    - { name: opcode, start: 0,  width: 7, role: opcode }
+    - { name: rd,     start: 7,  width: 5, role: register, type: gpr }
+    - { name: funct3, start: 12, width: 3, role: constant }
+    - { name: rs1,    start: 15, width: 5, role: register, type: gpr }
+    - { name: rs2,    start: 20, width: 5, role: register, type: gpr }
+    - { name: funct7, start: 25, width: 7, role: constant }
+
+---
+apiVersion: isa-archive/v1
+kind: Schema
+metadata:
+  name: ITypeALU
+  description: Register-immediate — rd ← rs1 op sext(imm12)
+spec:
+  length: 32
+  fields:
+    - { name: opcode, start: 0,  width: 7,  role: opcode }
+    - { name: rd,     start: 7,  width: 5,  role: register, type: gpr }
+    - { name: funct3, start: 12, width: 3,  role: constant }
+    - { name: rs1,    start: 15, width: 5,  role: register, type: gpr }
+    - { name: imm,    start: 20, width: 12, role: immediate, type: signed }
+
+---
+apiVersion: isa-archive/v1
+kind: Schema
+metadata:
+  name: UType
+  description: Upper immediate — 20 bits destined for the top of a register
+spec:
+  length: 32
+  fields:
+    - { name: opcode, start: 0,  width: 7,  role: opcode }
+    - { name: rd,     start: 7,  width: 5,  role: register, type: gpr }
+    - { name: imm,    start: 12, width: 20, role: immediate }
+
+---
+apiVersion: isa-archive/v1
+kind: Schema
+metadata:
+  name: SType
+  description: Store — the 12-bit offset is split across two fields
+spec:
+  length: 32
+  fields:
+    - { name: opcode,   start: 0,  width: 7, role: opcode }
+    - { name: imm_4_0,  start: 7,  width: 5, role: immediate }
+    - { name: funct3,   start: 12, width: 3, role: constant }
+    - { name: rs1,      start: 15, width: 5, role: register, type: gpr }
+    - { name: rs2,      start: 20, width: 5, role: register, type: gpr }
+    - { name: imm_11_5, start: 25, width: 7, role: immediate }

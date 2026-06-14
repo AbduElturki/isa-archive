@@ -1,0 +1,147 @@
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: ADD
+  description: Integer addition
+spec:
+  schema: RType
+  exec_type: alu_int
+  opcode: OP
+  funct3: F3_ALU.ADD_SUB
+  funct7: F7_ALU.BASE
+  behavior: "rd = rs1 + rs2"
+  description: "rd ← rs1 + rs2"
+
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: SUB
+  description: Integer subtraction
+spec:
+  schema: RType
+  exec_type: alu_int
+  opcode: OP
+  funct3: F3_ALU.ADD_SUB
+  funct7: F7_ALU.ALT
+  behavior: "rd = rs1 - rs2"
+  description: "rd ← rs1 − rs2"
+
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: ADDI
+  description: Add sign-extended 12-bit immediate
+spec:
+  schema: ITypeALU
+  exec_type: alu_int
+  opcode: OP_IMM
+  funct3: F3_ALU.ADD_SUB
+  behavior: "rd = rs1 + imm"
+  description: "rd ← rs1 + sext(imm[11:0])"
+  compiler:
+    # also infers alu_ri.add; tag the compiler-specific slots it fills
+    roles: [const.lo, frame.sp_adjust, global.lo]
+
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: SLT
+  description: Set if less than (signed)
+spec:
+  schema: RType
+  exec_type: alu_int
+  opcode: OP
+  funct3: F3_ALU.SLT
+  funct7: F7_ALU.BASE
+  behavior: |
+    if signed(rs1) < signed(rs2):
+      rd = 1
+    else:
+      rd = 0
+  description: "rd ← (signed)rs1 < (signed)rs2 ? 1 : 0"
+
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: SLTU
+  description: Set if less than (unsigned)
+spec:
+  schema: RType
+  exec_type: alu_int
+  opcode: OP
+  funct3: F3_ALU.SLTU
+  funct7: F7_ALU.BASE
+  behavior: |
+    if rs1 < rs2:
+      rd = 1
+    else:
+      rd = 0
+  description: "rd ← (unsigned)rs1 < (unsigned)rs2 ? 1 : 0"
+
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: SLTI
+  description: Set if less than immediate (signed)
+spec:
+  schema: ITypeALU
+  exec_type: alu_int
+  opcode: OP_IMM
+  funct3: F3_ALU.SLT
+  behavior: |
+    if signed(rs1) < signed(imm):
+      rd = 1
+    else:
+      rd = 0
+  description: "rd ← (signed)rs1 < sext(imm) ? 1 : 0"
+
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: SLTIU
+  description: Set if less than immediate (unsigned)
+spec:
+  schema: ITypeALU
+  exec_type: alu_int
+  opcode: OP_IMM
+  funct3: F3_ALU.SLTU
+  behavior: |
+    if rs1 < imm:
+      rd = 1
+    else:
+      rd = 0
+  description: "rd ← (unsigned)rs1 < (unsigned)sext(imm) ? 1 : 0"
+
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: LUI
+  description: Load upper immediate
+spec:
+  schema: UType
+  exec_type: alu_int
+  opcode: LUI_OP
+  behavior: "rd = zext(imm) << 12"
+  description: "rd ← imm << 12  (upper 20 bits)"
+  compiler:
+    roles: [const.hi, global.hi]
+
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: AUIPC
+  description: Add upper immediate to PC
+spec:
+  schema: UType
+  exec_type: alu_int
+  opcode: AUIPC_OP
+  behavior: "rd = pc + (zext(imm) << 12)"
+  description: "rd ← pc + (imm << 12)"

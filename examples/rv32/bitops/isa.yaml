@@ -1,0 +1,10 @@
+apiVersion: isa-archive/v1
+kind: ISA
+metadata:
+  name: rv32i-b
+  description: RV32I + custom bit-manipulation and struct-operation extension
+spec:
+  version: "1.0"
+  extends: "../base/isa.yaml"
+  includes:
+    - "instructions.yaml"

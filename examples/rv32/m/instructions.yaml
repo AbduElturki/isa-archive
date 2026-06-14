@@ -1,0 +1,77 @@
+# RV32M integer multiply/divide extension.
+# All M-extension instructions share opcode=0x33 with the base R-type ops but
+# use funct7=0x01 to distinguish them, preventing decoder collisions.
+
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: MUL
+  description: Multiply — lower 32 bits of product
+spec:
+  schema: RType
+  exec_type: mul_div
+  opcode: OP
+  funct3: 0x0
+  funct7: 0x01
+  behavior: "rd = rs1 * rs2"
+  description: "rd ← (rs1 × rs2)[31:0]"
+
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: DIV
+  description: Signed integer division
+spec:
+  schema: RType
+  exec_type: mul_div
+  opcode: OP
+  funct3: 0x4
+  funct7: 0x01
+  behavior: "rd = rs1 / rs2"
+  description: "rd ← (signed)rs1 ÷ (signed)rs2  (truncated toward zero)"
+
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: DIVU
+  description: Unsigned integer division
+spec:
+  schema: RType
+  exec_type: mul_div
+  opcode: OP
+  funct3: 0x5
+  funct7: 0x01
+  behavior: "rd = rs1 / rs2"
+  description: "rd ← (unsigned)rs1 ÷ (unsigned)rs2  (truncated toward zero)"
+
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: REM
+  description: Signed remainder
+spec:
+  schema: RType
+  exec_type: mul_div
+  opcode: OP
+  funct3: 0x6
+  funct7: 0x01
+  behavior: "rd = rs1 % rs2"
+  description: "rd ← (signed)rs1 mod (signed)rs2"
+
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: REMU
+  description: Unsigned remainder
+spec:
+  schema: RType
+  exec_type: mul_div
+  opcode: OP
+  funct3: 0x7
+  funct7: 0x01
+  behavior: "rd = rs1 % rs2"
+  description: "rd ← (unsigned)rs1 mod (unsigned)rs2"

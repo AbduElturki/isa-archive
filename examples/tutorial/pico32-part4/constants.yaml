@@ -1,0 +1,70 @@
+# Named opcodes and function-code enums — no more magic numbers in
+# instruction definitions.
+
+apiVersion: isa-archive/v1
+kind: Constant
+metadata: { name: OP, description: register-register ALU opcode }
+spec: { value: 0x33, width: 7 }
+---
+apiVersion: isa-archive/v1
+kind: Constant
+metadata: { name: OP_IMM, description: register-immediate ALU opcode }
+spec: { value: 0x13, width: 7 }
+---
+apiVersion: isa-archive/v1
+kind: Constant
+metadata: { name: LUI_OP, description: load-upper-immediate opcode }
+spec: { value: 0x37, width: 7 }
+---
+apiVersion: isa-archive/v1
+kind: Constant
+metadata: { name: LOAD, description: memory load opcode }
+spec: { value: 0x03, width: 7 }
+---
+apiVersion: isa-archive/v1
+kind: Constant
+metadata: { name: STORE, description: memory store opcode }
+spec: { value: 0x23, width: 7 }
+---
+apiVersion: isa-archive/v1
+kind: Constant
+metadata: { name: BRANCH, description: conditional branch opcode }
+spec: { value: 0x63, width: 7 }
+---
+apiVersion: isa-archive/v1
+kind: Constant
+metadata: { name: JAL_OP, description: jump-and-link opcode }
+spec: { value: 0x6F, width: 7 }
+---
+apiVersion: isa-archive/v1
+kind: Constant
+metadata: { name: JALR_OP, description: indirect jump-and-link opcode }
+spec: { value: 0x67, width: 7 }
+---
+apiVersion: isa-archive/v1
+kind: Enum
+metadata: { name: F3_ALU, description: ALU function selector }
+spec:
+  width: 3
+  values: { ADD_SUB: 0, OR: 6 }
+---
+apiVersion: isa-archive/v1
+kind: Enum
+metadata: { name: F7_ALU, description: ALU variant selector }
+spec:
+  width: 7
+  values: { BASE: 0, ALT: 32, MULDIV: 1 }
+---
+apiVersion: isa-archive/v1
+kind: Enum
+metadata: { name: F3_BRANCH, description: branch condition selector }
+spec:
+  width: 3
+  values: { BEQ: 0, BNE: 1, BLT: 4, BLTU: 6 }
+---
+apiVersion: isa-archive/v1
+kind: Enum
+metadata: { name: F3_MEM, description: memory access width selector }
+spec:
+  width: 3
+  values: { WORD: 2 }
