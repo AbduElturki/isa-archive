@@ -19,7 +19,7 @@ def generate_docs(registry: Registry, output_dir: str, doc_format: str = "md"):
             "instructions": isa_reg.instructions,
             "constants": isa_reg.constants,
             "enums": isa_reg.enums,
-            "csrs": {}
+            "csrs": isa_reg.arch_csrs,
         }
 
         # Generate each requested format

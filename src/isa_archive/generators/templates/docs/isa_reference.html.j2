@@ -102,16 +102,34 @@
             </tr>
         </thead>
         <tbody>
-            {% for csr in csrs.values() %}
+            {% for csr in csrs %}
             <tr>
-                <td>{{ csr.metadata.name }}</td>
-                <td><code>{{ hex(csr.spec.address) }}</code></td>
-                <td>{{ csr.spec.width }}</td>
-                <td><code>{{ hex(csr.spec.reset_value) }}</code></td>
+                <td>{{ csr.name }}</td>
+                <td><code>{{ hex(csr.address) }}</code></td>
+                <td>{{ csr.width }}</td>
+                <td><code>{{ hex(csr.reset_value) }}</code></td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
+    {% for csr in csrs if csr.fields %}
+    <h3>{{ csr.name }} fields</h3>
+    <table>
+        <thead>
+            <tr><th>Field</th><th>Bits</th><th>Access</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+            {% for f in csr.fields %}
+            <tr>
+                <td>{{ f.name }}</td>
+                <td>{{ f.start }}{% if f.end != f.start %}:{{ f.end }}{% endif %}</td>
+                <td>{{ f.access.value if f.access is not string else f.access }}</td>
+                <td>{{ f.description or "" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endfor %}
     {% endif %}
 
     <footer>

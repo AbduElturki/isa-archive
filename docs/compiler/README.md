@@ -22,9 +22,10 @@ build/
 This is not a stub: register classes, instruction selection patterns, calling
 convention, frame lowering, the assembler/disassembler (MC layer), and ELF
 object emission are all generated from your manifests. The bundled
-`examples/rv32/base` backend compiles `fib.c` with `-O1` and the result runs
-on the generated QEMU — that's the proven path the
-[tutorial](../tutorial/03-compiling-c.md) reproduces for your own ISA.
+`examples/tutorial/pico32-part4` backend compiles `fib.c` with `-O1` and the
+result runs on the generated QEMU — that's the proven path the
+[tutorial](../../examples/tutorial/pico32-part3/README.md) reproduces for your
+own ISA.
 
 ## What "complete" means: target profiles
 
@@ -70,10 +71,11 @@ operations, and the simulator is their home today.
 The generator never assumes RISC-V names or values. Which instruction is the
 "add", which registers hold arguments, how constants are materialized —
 all of it comes from your YAML, via [roles](roles-and-coverage.md) and the
-[ABI block](../yaml/isa.md#abi--the-calling-convention). `examples/minimips`
-exists to prove it: MIPS-style registers (`r*`), MIPS ABI names, and a
-different constant-materialization idiom (`LUI`+`ORI`), all driven from
-manifests.
+[ABI block](../yaml/isa.md#abi--the-calling-convention). An OR-based constant
+idiom (`LUI`+`ORI`) yields the `hi_lo_or` strategy instead of pico32's
+`LUI`+`ADDI` `hi_lo_add` — same generator, different YAML — and
+[`examples/npu-probe`](../../examples/npu-probe/README.md) pushes further off
+the RISC-V path entirely (big-endian, vector registers, no stack).
 
 ## Current boundaries
 

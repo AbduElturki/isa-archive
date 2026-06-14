@@ -1,0 +1,49 @@
+# Floating-point instruction layouts. Same 32-bit word as the base ISA, but
+# the register operands name the `fpr` file, so the generated compiler builds a
+# second register class and the QEMU helpers operate on float state.
+
+apiVersion: isa-archive/v1
+kind: Schema
+metadata:
+  name: FRType
+  description: Float register-register — fd ← fs1 op fs2
+spec:
+  length: 32
+  fields:
+    - { name: opcode, start: 0,  width: 7, role: opcode }
+    - { name: rd,     start: 7,  width: 5, role: register, type: fpr }
+    - { name: rm,     start: 12, width: 3, role: reserved }            # rounding mode (0 = RNE)
+    - { name: rs1,    start: 15, width: 5, role: register, type: fpr }
+    - { name: rs2,    start: 20, width: 5, role: register, type: fpr }
+    - { name: funct7, start: 25, width: 7, role: constant, type: enum.F7_FP }
+
+---
+apiVersion: isa-archive/v1
+kind: Schema
+metadata:
+  name: FLoadType
+  description: Float load — fd ← mem[rs1 + sext(imm12)]
+spec:
+  length: 32
+  fields:
+    - { name: opcode, start: 0,  width: 7,  role: opcode }
+    - { name: rd,     start: 7,  width: 5,  role: register, type: fpr }
+    - { name: funct3, start: 12, width: 3,  role: constant, type: enum.F3_FMEM }
+    - { name: rs1,    start: 15, width: 5,  role: register, type: gpr }   # address base is an integer reg
+    - { name: imm,    start: 20, width: 12, role: immediate, type: signed }
+
+---
+apiVersion: isa-archive/v1
+kind: Schema
+metadata:
+  name: FStoreType
+  description: Float store — the 12-bit offset is split across two fields
+spec:
+  length: 32
+  fields:
+    - { name: opcode,   start: 0,  width: 7, role: opcode }
+    - { name: imm_4_0,  start: 7,  width: 5, role: immediate }
+    - { name: funct3,   start: 12, width: 3, role: constant, type: enum.F3_FMEM }
+    - { name: rs1,      start: 15, width: 5, role: register, type: gpr }   # address base
+    - { name: rs2,      start: 20, width: 5, role: register, type: fpr }   # value to store
+    - { name: imm_11_5, start: 25, width: 7, role: immediate }

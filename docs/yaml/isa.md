@@ -94,11 +94,11 @@ in behaviors; details in [the QEMU guide](../qemu/README.md#how-register-files-a
 Three real configurations to crib from:
 
 ```yaml
-# examples/rv32/base — one integer file with full RISC-V ABI aliases
-- { name: gpr, width: 32, count: 32, zero_register: 0, canonical_prefix: x,
+# examples/tutorial/pico32-part4 — one integer file with ABI aliases
+- { name: gpr, width: 32, count: 32, zero_register: 0, canonical_prefix: r,
     aliases: { zero: 0, ra: 1, sp: 2, a0: 10, ... } }
 
-# examples/showcase — integer + single-precision float
+# examples/tutorial/pico32-part4/fp — integer + single-precision float
 - { name: gpr, width: 32, count: 32, zero_register: 0 }
 - { name: fpr, width: 32, count: 32, type: f32 }
 
@@ -162,7 +162,7 @@ This becomes `hw/{isa}/virt.c` — a minimal board with your RAM layout and
 devices. Two device types are available today: `ns16550` (a UART — write a
 byte to its base address and it appears on the console) and `sifive_test`
 (a software power switch: write `0x5555` for "exit 0", `0x3333` for "exit
-non-zero"). [Tutorial part 1](../tutorial/01-hello-pico32.md) uses both.
+non-zero"). [Tutorial part 1](../../examples/tutorial/pico32-part1/README.md) uses both.
 
 For a narrow `xlen`, the whole layout must fit in `2^xlen` bytes — generation
 fails with a clear message otherwise.
@@ -208,9 +208,9 @@ elf_relocations:            # optional: fixup → relocation name overrides
 *linking* its output is another. Linkers only understand relocations they
 already know. If your immediate-field placements match an existing
 architecture's, you can register under its triple and reuse its relocations —
-then any stock linker links your programs. That's exactly what
-`examples/minimips` and the [tutorial's pico32](../tutorial/README.md) do
-with `riscv32`. The full story: [linking — the ELF reality](../compiler/build-and-use.md#linking-the-elf-reality).
+then any stock linker links your programs. That's exactly what the
+[tutorial's pico32](../../examples/tutorial/README.md) does with `riscv32`.
+The full story: [linking — the ELF reality](../compiler/build-and-use.md#linking-the-elf-reality).
 
 ## Current boundaries
 

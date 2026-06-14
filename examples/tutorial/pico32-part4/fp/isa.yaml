@@ -1,0 +1,63 @@
+apiVersion: isa-archive/v1
+kind: ISA
+metadata:
+  name: pico32f
+  description: >
+    pico32 + single-precision floating point — a second register class and a
+    hard-float ABI, layered with extends:. Because an extension that declares
+    *any* register file must restate the inherited ones (the loader only
+    inherits register files when the child declares none), the gpr file is
+    repeated verbatim and fpr is added alongside it. Everything else —
+    schemas, instructions, constants, triple, machine — is inherited.
+spec:
+  version: "0.4"
+  extends: "../isa.yaml"
+  includes:
+    - "constants.yaml"
+    - "schemas.yaml"
+    - "instructions.yaml"
+
+  state:
+    registers:
+      - name: gpr                # inherited file, restated (see note above)
+        width: 32
+        count: 32
+        zero_register: 0
+        canonical_prefix: r
+        aliases:
+          zero: 0
+          ra:   1
+          sp:   2
+          t0:   5
+          t1:   6
+          t2:   7
+          s0:   8
+          s1:   9
+          a0:   10
+          a1:   11
+          a2:   12
+          a3:   13
+      - name: fpr                # the new floating-point register class
+        width: 32
+        count: 32
+        canonical_prefix: f
+        type: f32                # single-precision IEEE float
+        aliases:
+          ft0: 5
+          ft1: 6
+          ft2: 7
+          fs0: 8
+          fs1: 9
+          fa0: 10
+          fa1: 11
+          fa2: 12
+          fa3: 13
+
+  abi:                           # restated to add the hard-float registers
+    stack_alignment: 16
+    arg_registers: [a0, a1, a2, a3]
+    ret_registers: [a0, a1]
+    callee_saved: [ra, sp, s0, s1]
+    frame_pointer: s0
+    fp_arg_registers: [fa0, fa1, fa2, fa3]
+    fp_ret_registers: [fa0, fa1]

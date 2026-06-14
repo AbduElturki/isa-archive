@@ -105,4 +105,5 @@ spec:
   description: "rd ← {rs2[15:0], rs1[15:0]}"
 ```
 
-`examples/rv32/base/types.yaml` and `examples/showcase/` have more.
+Operands map cleanly onto register files (`maps_to_state:`) and nest, so a
+packed pair can name a register-file element directly.

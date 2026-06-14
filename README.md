@@ -13,7 +13,7 @@
   - **QEMU (TCG JIT):** Full QEMU backend — `decodetree` rules, `helper.c/h`, `trans_*.c.inc`, QOM boilerplate, machine definition, and build system.  Drop output directly into the QEMU source tree.
   - **Software Intrinsics (C/Rust):** Type-safe structs and inline assembly intrinsics for calling custom instructions from software.
   - **Documentation (Markdown/HTML/PDF):** Human-readable reference manuals with instruction layouts, CSRs, and behavior descriptions.
-  - **Compiler (LLVM):** A complete LLVM backend — a real `clang`/`llc` for your ISA. Proven end to end: the generated RISC-V backend compiles `fib.c`, and the binary runs on the generated `qemu-system-rv32i`.
+  - **Compiler (LLVM):** A complete LLVM backend — a real `clang`/`llc` for your ISA. Proven end to end: the generated pico32 backend compiles `fib.c`, and the binary runs on the generated `qemu-system-pico32`.
 
 ## Installation
 
@@ -32,20 +32,20 @@ uv run isa-archive --help
 isa-archive init my-cpu --xlen 32 --output-dir /tmp
 
 # Parse and validate
-isa-archive parse examples/rv32/base/isa.yaml
+isa-archive parse examples/tutorial/pico32-part4/isa.yaml
 
 # Generate a standalone assembler
-isa-archive generate --isa examples/rv32/base/isa.yaml -t asm -o /tmp/asm-out/
+isa-archive generate --isa examples/tutorial/pico32-part4/isa.yaml -t asm -o /tmp/asm-out/
 
 # Generate a complete QEMU target (drop-in, mirrors QEMU source tree)
-isa-archive generate --isa examples/rv32/base/isa.yaml -t qemu -o /tmp/qemu-out/
+isa-archive generate --isa examples/tutorial/pico32-part4/isa.yaml -t qemu -o /tmp/qemu-out/
 
 # Generate everything at once
-isa-archive generate --isa examples/rv32/base/isa.yaml -t all -o build/
+isa-archive generate --isa examples/tutorial/pico32-part4/isa.yaml -t all -o build/
 ```
 
 **New here?** Build your own ISA from an empty directory — simulate it, then
-compile C for it — in the [**pico32 tutorial**](docs/tutorial/README.md).
+compile C for it — in the [**pico32 tutorial**](examples/tutorial/README.md).
 
 ## Documentation
 
@@ -117,17 +117,16 @@ behavior: "rd = {rs2[0:16], rs1[16:32]}"
 ```
 docs/
   getting-started/  ← Install, quickstart, concepts
-  tutorial/         ← Build the pico32 ISA from scratch (4 parts)
+  tutorial/         ← Pointer to the tutorial (which lives in examples/)
   yaml/             ← Manifest reference (one page per kind) + behavior DSL
   qemu/             ← QEMU backend guide
   compiler/         ← LLVM backend guide (roles, profiles, building clang)
   targets/          ← Assembler, intrinsics, Verilog, reference manuals
 examples/
-  rv32/base/        ← Full RV32I example (ISA + machine config + build demo)
-  minimips/         ← A second compiler-complete ISA (MIPS flavor)
-  showcase/         ← Two register classes, 64-bit instruction words
-  npu-probe/        ← Accelerator-style ISA (kernel-only profile)
-  tutorial/         ← pico32 per-part snapshots
+  tutorial/         ← Build pico32 from scratch (4 narrated parts + snapshots)
+    pico32-part4/mul,fp,sys  ← extension layers (multiply, float, CSRs)
+    scripts/        ← scripted end-to-end QEMU + LLVM build
+  npu-probe/        ← Accelerator-style ISA (kernel-only, big-endian, vectors)
 src/isa_archive/
   compiler/         ← Behavior IR, loader, and per-target language backends
   generators/       ← Per-target generators (qemu, asm, sv, sw, docs, llvm)

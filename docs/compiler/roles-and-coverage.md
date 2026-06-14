@@ -51,10 +51,10 @@ constants" — that's a *convention* you're choosing, so you declare it.
 How does the compiler put `0x12345678` in a register? It infers a strategy
 from your `const.*` tags plus the tagged instructions' *behaviors*:
 
-- `examples/rv32/base`: `const.hi` on LUI, `const.lo` on ADDI. ADDI
+- **pico32** (the tutorial): `const.hi` on LUI, `const.lo` on ADDI. ADDI
   **sign-extends** its immediate → strategy `hi_lo_add` (the high part
   compensates for the sign).
-- `examples/minimips`: `const.hi` on LUI, `const.lo` on ORI. ORI
+- A MIPS-style ISA with `const.hi` on LUI and `const.lo` on ORI: ORI
   **zero-extends** → strategy `hi_lo_or` (no compensation).
 - An ISA with one full-width load-immediate tags it `const.load` →
   `single_imm`.

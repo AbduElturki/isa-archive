@@ -1,14 +1,14 @@
 # Quickstart — five minutes, no builds
 
 Everything here runs instantly: no QEMU build, no LLVM build. We'll use the
-bundled RISC-V example as the guinea pig, then scaffold an ISA of your own.
+bundled pico32 example as the guinea pig, then scaffold an ISA of your own.
 
 ## 1. Validate a real ISA
 
 ```sh
-$ isa-archive parse examples/rv32/base/isa.yaml
-Validated examples/rv32/base/isa.yaml
-  [rv32i]  rv32i v2.1  xlen=32  9 schemas  35 instructions  2 operands  6 CSRs
+$ isa-archive parse examples/tutorial/pico32-part4/isa.yaml
+Validated examples/tutorial/pico32-part4/isa.yaml
+  [pico32]  pico32 v0.4  xlen=32  8 schemas  13 instructions  0 operands  0 CSRs
 ```
 
 The loader checks everything before any generator runs: bit-field bounds and
@@ -25,8 +25,8 @@ spec.byte_oder
 ## 2. Generate a reference manual
 
 ```sh
-$ isa-archive generate --isa examples/rv32/base/isa.yaml -t docs -f html -o build/manual
-$ open build/manual/rv32i_reference.html
+$ isa-archive generate --isa examples/tutorial/pico32-part4/isa.yaml -t docs -f html -o build/manual
+$ open build/manual/pico32_reference.html
 ```
 
 A browsable instruction reference — encodings, fields, behaviors, CSRs — straight
@@ -35,13 +35,13 @@ from the YAML.
 ## 3. Generate an assembler and assemble a program
 
 ```sh
-$ isa-archive generate --isa examples/rv32/base/isa.yaml -t asm -o build/asm
+$ isa-archive generate --isa examples/tutorial/pico32-part4/isa.yaml -t asm -o build/asm
 $ cat > tiny.s <<'EOF'
 .text
     addi a0, zero, 42
     add  a1, a0, a0
 EOF
-$ python3 build/asm/rv32i_asm.py tiny.s -o tiny.bin
+$ python3 build/asm/pico32_asm.py tiny.s -o tiny.bin
 Written 8 bytes → tiny.bin
 $ xxd tiny.bin
 00000000: 1305 a002 b305 a500                      ........
@@ -68,7 +68,7 @@ Three small files, fully valid, every generator works on them.
 ## Where next
 
 - **Build a complete ISA, run programs on it, compile C for it** → the
-  [pico32 tutorial](../tutorial/README.md). It starts exactly where step 4
-  left off.
+  [pico32 tutorial](../../examples/tutorial/README.md). It starts exactly where
+  step 4 left off.
 - **Understand the moving parts first** → [Concepts](concepts.md).
 - **Look up YAML fields as you go** → the [manifest reference](../yaml/README.md).

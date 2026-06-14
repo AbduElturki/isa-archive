@@ -1,8 +1,8 @@
 # SystemVerilog hardware models (`-t verilog`)
 
 ```sh
-isa-archive generate --isa examples/rv32/base/isa.yaml \
-    --uarch examples/rv32/uarch/in-order.yaml -t verilog -o build/rtl
+isa-archive generate --isa examples/tutorial/pico32-part4/isa.yaml \
+    --uarch examples/tutorial/pico32-part4/uarch.yaml -t verilog -o build/rtl
 ```
 
 The Verilog target pairs your ISA with a [uArch manifest](../yaml/uarch.md)
@@ -14,10 +14,10 @@ The Verilog target pairs your ISA with a [uArch manifest](../yaml/uarch.md)
 | `{uarch}_{Block}.sv` | one module per uArch block — combinational datapath implementing every instruction the block `handles`, decoded from the instruction word, semantics from `behavior:` |
 | `{uarch}_top.sv` | a top-level skeleton instantiating the blocks |
 
-A block module's interface (from the rv32i in-order example):
+A block module's interface (from the pico32-tiny uArch):
 
 ```systemverilog
-module rv32i_classic_IntegerALU #(
+module pico32_tiny_IntegerALU #(
     parameter int XLEN = 32
 ) (
     input  logic [31:0] instruction,

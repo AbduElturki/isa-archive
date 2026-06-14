@@ -642,8 +642,9 @@ def test_setcc_via_branch_emitted_only_without_set_less_than(tmp_path):
     assert "ZeroOrOneBooleanContent" in lower
     assert "case PICO32::PseudoSetCC:" in lower
 
-    # rv32 (has SLT): comparisons use the SLT instruction, no diamond
-    reg2 = Registry(); load_isa(str(ex / "rv32/base/isa.yaml"), reg2)
-    generate_llvm(reg2, str(tmp_path / "rv32"))
-    t2 = tmp_path / "rv32" / "llvm" / "lib" / "Target" / "RV32I"
-    assert "def PseudoSetCC" not in (t2 / "RV32IInstrInfo.td").read_text()
+    # cmpisa fixture (has SLT): comparisons use the SLT instruction, no diamond
+    fixtures = pathlib.Path(__file__).parent / "fixtures"
+    reg2 = Registry(); load_isa(str(fixtures / "cmpisa.yaml"), reg2)
+    generate_llvm(reg2, str(tmp_path / "cmpisa"))
+    t2 = tmp_path / "cmpisa" / "llvm" / "lib" / "Target" / "CMPISA"
+    assert "def PseudoSetCC" not in (t2 / "CMPISAInstrInfo.td").read_text()

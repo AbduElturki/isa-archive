@@ -1,10 +1,10 @@
 # Building and using your clang
 
 This is the manual, understand-every-step version. The automated equivalent
-for the bundled RISC-V example is `bash examples/demo/02_build_llvm.sh` (and
-`03_run_demo.sh` to compile and run programs).
-[Tutorial part 3](../tutorial/03-compiling-c.md) walks this for an ISA you
-built yourself.
+for the bundled pico32 example is `bash examples/tutorial/scripts/02_build_llvm.sh`
+(and `03_run_demo.sh` to compile and run programs).
+[Tutorial part 3](../../examples/tutorial/pico32-part3/README.md) walks this for
+an ISA you built yourself.
 
 Prerequisites: `git`, `cmake`, `ninja`. The build is the big one-time cost:
 **~40–60 minutes and ~25 GB** for a Release build of LLVM+clang with just
@@ -82,9 +82,8 @@ So you have two honest options:
    register under its triple (`triple_arch: riscv32`, `elf_machine: 243`)
    and its relocations patch your instructions correctly, because the bits
    live where the linker expects. Everything else (mnemonics, opcode values,
-   register names, ABI, semantics) stays yours. This is the proven path:
-   `examples/minimips` and the tutorial's pico32 both link with stock LLD
-   this way.
+   register names, ABI, semantics) stays yours. This is the proven path: the
+   tutorial's pico32 links with stock LLD this way.
 2. **Invent your own placements** — generation works, the compiler works,
    `clang -c` emits objects… and no existing linker can finally link them.
    You keep: the simulator, and the

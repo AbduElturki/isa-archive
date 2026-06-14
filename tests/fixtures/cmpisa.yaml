@@ -1,0 +1,329 @@
+# Test fixture — NOT a user-facing example.
+#
+# A minimal MIPS-flavoured ISA that exercises the generated-compiler paths
+# pico32 deliberately can't: OR-based constant materialization (hi_lo_or, via an
+# ORI tagged const.lo) and compare-then-branch control flow (SLT/SLTU + BEQ/BNE
+# with NO direct ordering branch), which in turn triggers the SELECTCC custom
+# inserter. Reuses the riscv32 triple for a working linker. Kept under tests/ so
+# examples/ stays focused on pico32 + npu-probe.
+apiVersion: isa-archive/v1
+kind: ISA
+metadata:
+  name: cmpisa
+  description: Compare-then-branch + hi_lo_or fixture ISA (tests only).
+spec:
+  version: "1.0"
+  xlen: 32
+  byte_order: little
+  compiler: { profile: c-baremetal }
+  triple_arch: riscv32
+  elf_machine: 243
+  nop_encoding: "00000013"
+  state:
+    registers:
+      - name: gpr
+        width: 32
+        count: 32
+        zero_register: 0
+        canonical_prefix: r
+        aliases:
+          zero: 0
+          ra:   1
+          sp:   2
+          t0:   5
+          t1:   6
+          s0:   8
+          s1:   9
+          a0:   10
+          a1:   11
+          a2:   12
+          a3:   13
+  abi:
+    stack_alignment: 16
+    arg_registers: [a0, a1, a2, a3]
+    ret_registers: [a0, a1]
+    callee_saved: [ra, sp, s0, s1]
+    frame_pointer: s0
+
+---
+apiVersion: isa-archive/v1
+kind: Constant
+metadata: { name: OP }
+spec: { value: 0x33, width: 7 }
+---
+apiVersion: isa-archive/v1
+kind: Constant
+metadata: { name: OP_IMM }
+spec: { value: 0x13, width: 7 }
+---
+apiVersion: isa-archive/v1
+kind: Constant
+metadata: { name: LUI_OP }
+spec: { value: 0x37, width: 7 }
+---
+apiVersion: isa-archive/v1
+kind: Constant
+metadata: { name: LOAD }
+spec: { value: 0x03, width: 7 }
+---
+apiVersion: isa-archive/v1
+kind: Constant
+metadata: { name: STORE }
+spec: { value: 0x23, width: 7 }
+---
+apiVersion: isa-archive/v1
+kind: Constant
+metadata: { name: BRANCH }
+spec: { value: 0x63, width: 7 }
+---
+apiVersion: isa-archive/v1
+kind: Constant
+metadata: { name: JAL_OP }
+spec: { value: 0x6F, width: 7 }
+---
+apiVersion: isa-archive/v1
+kind: Constant
+metadata: { name: JALR_OP }
+spec: { value: 0x67, width: 7 }
+---
+apiVersion: isa-archive/v1
+kind: Enum
+metadata: { name: F3_ALU }
+spec: { width: 3, values: { ADD_SUB: 0, OR: 6, SLT: 2, SLTU: 3 } }
+---
+apiVersion: isa-archive/v1
+kind: Enum
+metadata: { name: F7_ALU }
+spec: { width: 7, values: { BASE: 0, ALT: 32 } }
+---
+apiVersion: isa-archive/v1
+kind: Enum
+metadata: { name: F3_BRANCH }
+spec: { width: 3, values: { BEQ: 0, BNE: 1 } }
+---
+apiVersion: isa-archive/v1
+kind: Enum
+metadata: { name: F3_MEM }
+spec: { width: 3, values: { WORD: 2 } }
+
+---
+apiVersion: isa-archive/v1
+kind: Schema
+metadata: { name: RType }
+spec:
+  length: 32
+  compiler: { roles: [alu_rr] }
+  fields:
+    - { name: opcode, start: 0,  width: 7, role: opcode }
+    - { name: rd,     start: 7,  width: 5, role: register, type: gpr }
+    - { name: funct3, start: 12, width: 3, role: constant, type: enum.F3_ALU }
+    - { name: rs1,    start: 15, width: 5, role: register, type: gpr }
+    - { name: rs2,    start: 20, width: 5, role: register, type: gpr }
+    - { name: funct7, start: 25, width: 7, role: constant, type: enum.F7_ALU }
+---
+apiVersion: isa-archive/v1
+kind: Schema
+metadata: { name: ITypeALU }
+spec:
+  length: 32
+  fields:
+    - { name: opcode, start: 0,  width: 7,  role: opcode }
+    - { name: rd,     start: 7,  width: 5,  role: register, type: gpr }
+    - { name: funct3, start: 12, width: 3,  role: constant, type: enum.F3_ALU }
+    - { name: rs1,    start: 15, width: 5,  role: register, type: gpr }
+    - { name: imm,    start: 20, width: 12, role: immediate, type: signed }
+---
+apiVersion: isa-archive/v1
+kind: Schema
+metadata: { name: ITypeLoad }
+spec:
+  length: 32
+  fields:
+    - { name: opcode, start: 0,  width: 7,  role: opcode }
+    - { name: rd,     start: 7,  width: 5,  role: register, type: gpr }
+    - { name: funct3, start: 12, width: 3,  role: constant, type: enum.F3_MEM }
+    - { name: rs1,    start: 15, width: 5,  role: register, type: gpr }
+    - { name: imm,    start: 20, width: 12, role: immediate, type: signed }
+---
+apiVersion: isa-archive/v1
+kind: Schema
+metadata: { name: UType }
+spec:
+  length: 32
+  fields:
+    - { name: opcode, start: 0,  width: 7,  role: opcode }
+    - { name: rd,     start: 7,  width: 5,  role: register, type: gpr }
+    - { name: imm,    start: 12, width: 20, role: immediate }
+---
+apiVersion: isa-archive/v1
+kind: Schema
+metadata: { name: SType }
+spec:
+  length: 32
+  fields:
+    - { name: opcode,   start: 0,  width: 7, role: opcode }
+    - { name: imm_4_0,  start: 7,  width: 5, role: immediate }
+    - { name: funct3,   start: 12, width: 3, role: constant, type: enum.F3_MEM }
+    - { name: rs1,      start: 15, width: 5, role: register, type: gpr }
+    - { name: rs2,      start: 20, width: 5, role: register, type: gpr }
+    - { name: imm_11_5, start: 25, width: 7, role: immediate }
+---
+apiVersion: isa-archive/v1
+kind: Schema
+metadata: { name: BType }
+spec:
+  length: 32
+  fields:
+    - { name: opcode,   start: 0,  width: 7, role: opcode }
+    - { name: imm_11,   start: 7,  width: 1, role: immediate }
+    - { name: imm_4_1,  start: 8,  width: 4, role: immediate }
+    - { name: funct3,   start: 12, width: 3, role: constant, type: enum.F3_BRANCH }
+    - { name: rs1,      start: 15, width: 5, role: register, type: gpr }
+    - { name: rs2,      start: 20, width: 5, role: register, type: gpr }
+    - { name: imm_10_5, start: 25, width: 6, role: immediate }
+    - { name: imm_12,   start: 31, width: 1, role: immediate }
+---
+apiVersion: isa-archive/v1
+kind: Schema
+metadata: { name: JType }
+spec:
+  length: 32
+  fields:
+    - { name: opcode,    start: 0,  width: 7,  role: opcode }
+    - { name: rd,        start: 7,  width: 5,  role: register, type: gpr }
+    - { name: imm_19_12, start: 12, width: 8,  role: immediate }
+    - { name: imm_11,    start: 20, width: 1,  role: immediate }
+    - { name: imm_10_1,  start: 21, width: 10, role: immediate }
+    - { name: imm_20,    start: 31, width: 1,  role: immediate }
+---
+apiVersion: isa-archive/v1
+kind: Schema
+metadata: { name: ITypeJalr }
+spec:
+  length: 32
+  fields:
+    - { name: opcode, start: 0,  width: 7,  role: opcode }
+    - { name: rd,     start: 7,  width: 5,  role: register, type: gpr }
+    - { name: funct3, start: 12, width: 3,  role: constant }
+    - { name: rs1,    start: 15, width: 5,  role: register, type: gpr }
+    - { name: imm,    start: 20, width: 12, role: immediate, type: signed }
+
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata: { name: ADD }
+spec: { schema: RType, opcode: OP, funct3: F3_ALU.ADD_SUB, funct7: F7_ALU.BASE, behavior: "rd = rs1 + rs2" }
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata: { name: SUB }
+spec: { schema: RType, opcode: OP, funct3: F3_ALU.ADD_SUB, funct7: F7_ALU.ALT, behavior: "rd = rs1 - rs2" }
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata: { name: OR }
+spec: { schema: RType, opcode: OP, funct3: F3_ALU.OR, funct7: F7_ALU.BASE, behavior: "rd = rs1 | rs2" }
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata: { name: SLT }
+spec:
+  schema: RType
+  opcode: OP
+  funct3: F3_ALU.SLT
+  funct7: F7_ALU.BASE
+  behavior: |
+    if signed(rs1) < signed(rs2):
+        rd = 1
+    else:
+        rd = 0
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata: { name: SLTU }
+spec:
+  schema: RType
+  opcode: OP
+  funct3: F3_ALU.SLTU
+  funct7: F7_ALU.BASE
+  behavior: |
+    if rs1 < rs2:
+        rd = 1
+    else:
+        rd = 0
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata: { name: ADDI }
+spec:
+  schema: ITypeALU
+  opcode: OP_IMM
+  funct3: F3_ALU.ADD_SUB
+  behavior: "rd = rs1 + imm"
+  compiler: { roles: [frame.sp_adjust] }
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata: { name: ORI }
+spec:
+  schema: ITypeALU
+  opcode: OP_IMM
+  funct3: F3_ALU.OR
+  behavior: "rd = rs1 | imm"
+  compiler: { roles: [const.lo, global.lo] }   # OR-based low half → hi_lo_or
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata: { name: LUI }
+spec:
+  schema: UType
+  opcode: LUI_OP
+  behavior: "rd = zext(imm) << 12"
+  compiler: { roles: [const.hi, global.hi] }
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata: { name: LW }
+spec: { schema: ITypeLoad, opcode: LOAD, funct3: F3_MEM.WORD, behavior: "rd = mem32[rs1 + imm]" }
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata: { name: SW }
+spec: { schema: SType, opcode: STORE, funct3: F3_MEM.WORD, behavior: "mem32[rs1 + {imm_11_5, imm_4_0}] = rs2" }
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata: { name: BEQ }
+spec:
+  schema: BType
+  opcode: BRANCH
+  funct3: F3_BRANCH.BEQ
+  behavior: "if rs1 == rs2: pc = pc + sext({imm_12, imm_11, imm_10_5, imm_4_1, 0}, 13)"
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata: { name: BNE }
+spec:
+  schema: BType
+  opcode: BRANCH
+  funct3: F3_BRANCH.BNE
+  behavior: "if rs1 != rs2: pc = pc + sext({imm_12, imm_11, imm_10_5, imm_4_1, 0}, 13)"
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata: { name: JAL }
+spec:
+  schema: JType
+  opcode: JAL_OP
+  behavior: "rd = pc + 4; pc = pc + sext({imm_20, imm_19_12, imm_11, imm_10_1, 0}, 21)"
+  compiler: { roles: [control.jump, control.call] }
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata: { name: JALR }
+spec:
+  schema: ITypeJalr
+  opcode: JALR_OP
+  funct3: 0
+  behavior: "rd = pc + 4; pc = rs1 + imm"
+  compiler: { roles: [control.call_indirect, control.ret] }

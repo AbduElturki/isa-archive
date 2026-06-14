@@ -1,9 +1,9 @@
 # Building and running your simulator
 
 This is the manual, understand-every-step version. The automated equivalent
-for the bundled RISC-V example is `bash examples/demo/01_build_qemu.sh` —
-same steps, scripted. [Tutorial part 1](../tutorial/01-hello-pico32.md) walks
-this for an ISA you build yourself.
+for the bundled pico32 example is `bash examples/tutorial/scripts/01_build_qemu.sh` —
+same steps, scripted. [Tutorial part 1](../../examples/tutorial/pico32-part1/README.md)
+walks this for an ISA you build yourself.
 
 Prerequisites: `git`, `meson`, `ninja` (macOS: `brew install meson ninja`).
 First build ~15 minutes and ~2 GB; rebuilds after ISA changes are seconds.
@@ -70,7 +70,7 @@ qemu-system-pico32 -M pico32-virt -display none -serial stdio -monitor none \
 **Exiting**: with a `sifive_test` device declared, the program writes `0x5555`
 to its base address and QEMU exits with status 0 (`0x3333` → failure). Make
 that write the program's *last action* (or spin afterwards) — see the
-[tutorial](../tutorial/01-hello-pico32.md#run-it) for the idiom.
+[tutorial](../../examples/tutorial/pico32-part1/README.md#run-it) for the idiom.
 
 ## Debugging your ISA
 

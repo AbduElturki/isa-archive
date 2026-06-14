@@ -124,7 +124,7 @@ behavior: |                                      # jump-and-link
   rd = pc + 4
   pc = pc + sext({imm_20, imm_19_12, imm_11, imm_10_1, 0}, 21)
 behavior: "vd = vs1 + vs2"                       # 128-bit add (npu-probe VADD)
-behavior: |                                      # struct operand (showcase)
+behavior: |                                      # struct operand
   v = Vec2(rs1, rs2)
   rd = v.lo + v.hi
 ```

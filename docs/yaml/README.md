@@ -61,19 +61,17 @@ spec:
     - "instructions/*.yaml"
 ```
 
-A typical layout (this is `examples/rv32/base/`):
+A typical layout (this is `examples/tutorial/pico32-part4/`):
 
 ```
-rv32i/
+pico32-part4/
   isa.yaml              # the ISA root
   schemas.yaml          # all the bit layouts
   constants.yaml        # opcodes, enums
-  types.yaml            # Operand structs
   instructions/
-    arithmetic.yaml
+    alu.yaml
     memory.yaml
-    branches.yaml
-    ...
+    control.yaml
 ```
 
 ## Building on another ISA: `extends:`
@@ -81,15 +79,15 @@ rv32i/
 An ISA can inherit everything from a base and add to it:
 
 ```yaml
-# examples/rv32/m/isa.yaml — the M extension
+# examples/tutorial/pico32-part4/mul/isa.yaml — the MUL extension
 spec:
-  version: "2.1"
-  extends: "../base/isa.yaml"
+  version: "0.4"
+  extends: "../isa.yaml"
   includes:
-    - "instructions.yaml"     # adds MUL, DIV, ...
+    - "instructions.yaml"     # adds MUL
 ```
 
 The extension gets the base's registers, schemas, constants, and
 instructions, then layers on its own. Generate from the extension's
-`isa.yaml` and you get the combined ISA. [Tutorial part 4](../tutorial/04-growing-the-isa.md)
-builds one.
+`isa.yaml` and you get the combined ISA.
+[Tutorial part 4](../../examples/tutorial/pico32-part4/README.md) builds one.

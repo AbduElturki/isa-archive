@@ -1,0 +1,32 @@
+# Float opcodes and the funct7 selector for the FP arithmetic group.
+# Placements follow RISC-V's F extension so the riscv32 relocation path
+# still links.
+
+apiVersion: isa-archive/v1
+kind: Constant
+metadata: { name: OP_FP, description: floating-point arithmetic opcode }
+spec: { value: 0x53, width: 7 }
+---
+apiVersion: isa-archive/v1
+kind: Constant
+metadata: { name: LOAD_FP, description: floating-point load opcode }
+spec: { value: 0x07, width: 7 }
+---
+apiVersion: isa-archive/v1
+kind: Constant
+metadata: { name: STORE_FP, description: floating-point store opcode }
+spec: { value: 0x27, width: 7 }
+---
+apiVersion: isa-archive/v1
+kind: Enum
+metadata: { name: F7_FP, description: floating-point operation selector }
+spec:
+  width: 7
+  values: { FADD: 0, FSUB: 4, FMUL: 8 }
+---
+apiVersion: isa-archive/v1
+kind: Enum
+metadata: { name: F3_FMEM, description: floating-point access width selector }
+spec:
+  width: 3
+  values: { WORD: 2 }   # 32-bit single-precision

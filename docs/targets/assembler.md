@@ -41,8 +41,8 @@ immediate bits.
 ## When this is your whole toolchain
 
 - **Bring-up** — it exists the moment your YAML parses; nothing to build.
-  [Tutorial part 1](../tutorial/01-hello-pico32.md) runs its first program
-  this way.
+  [Tutorial part 1](../../examples/tutorial/pico32-part1/README.md) runs its
+  first program this way.
 - **Invented encodings** — if your immediate placements don't match any
   existing architecture, [no stock linker can link your objects](../compiler/build-and-use.md#linking-the-elf-reality);
   this assembler doesn't need one (it places the whole program itself).

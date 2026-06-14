@@ -79,7 +79,7 @@ not maintainers. When you touch them:
     N", "tier N", or "we plan to…"). State what works today and what the
     current boundary is, from the user's point of view.
 *   **Keep toolchain commands aligned** with the automated scripts in
-    `examples/demo/` so the manual guides and the scripts can't drift.
+    `examples/tutorial/scripts/` so the manual guides and the scripts can't drift.
 
 ## 📜 License
 *   **Tool:** GNU GPLv3

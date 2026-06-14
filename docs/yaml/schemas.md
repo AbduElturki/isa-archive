@@ -62,7 +62,7 @@ everywhere — decoder, compiler patterns, fixups, assembler:
 
 ```yaml
 # A 13-bit branch offset, bit 0 implied zero, scattered across four fields
-# (this is examples/rv32/base's B-type, also used by the tutorial):
+# (this is pico32's B-type, from the tutorial):
 fields:
   - { name: opcode,   start: 0,  width: 7, role: opcode }
   - { name: imm_11,   start: 7,  width: 1, role: immediate }

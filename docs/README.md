@@ -10,8 +10,8 @@ Define your instruction set once, in YAML. Generate everything else:
 - a **reference manual** (Markdown / HTML / PDF)
 
 All from one set of manifests. The pipeline is proven end to end: the
-generated RISC-V backend compiles `fib.c`, and the binary runs on the
-generated `qemu-system-rv32i`.
+generated pico32 backend compiles `fib.c`, and the binary runs on the
+generated `qemu-system-pico32`.
 
 ## Choose your path
 
@@ -32,12 +32,12 @@ generated `qemu-system-rv32i`.
 - [Quickstart](getting-started/quickstart.md) — validate, generate a manual, assemble a program — in minutes
 - [Concepts](getting-started/concepts.md) — the manifest kinds and the generation pipeline
 
-**Tutorial — build pico32 from an empty directory**
-- [Overview](tutorial/README.md) — what you'll build, and one design decision explained
-- [Part 1 — Hello, pico32](tutorial/01-hello-pico32.md) — 4 instructions, a UART, and a working simulator
-- [Part 2 — A real instruction set](tutorial/02-a-real-instruction-set.md) — branches, loads, jumps; loops in assembly
-- [Part 3 — Compiling C](tutorial/03-compiling-c.md) — ABI, compiler roles, and a clang of your own
-- [Part 4 — Growing the ISA](tutorial/04-growing-the-isa.md) — extensions, intrinsics, manuals, hardware
+**Tutorial — build pico32 from an empty directory** (lives in `examples/tutorial/`)
+- [Overview](../examples/tutorial/README.md) — what you'll build, and one design decision explained
+- [Part 1 — Hello, pico32](../examples/tutorial/pico32-part1/README.md) — 4 instructions, a UART, and a working simulator
+- [Part 2 — A real instruction set](../examples/tutorial/pico32-part2/README.md) — branches, loads, jumps; loops in assembly
+- [Part 3 — Compiling C](../examples/tutorial/pico32-part3/README.md) — ABI, compiler roles, and a clang of your own
+- [Part 4 — Growing the ISA](../examples/tutorial/pico32-part4/README.md) — extensions, intrinsics, manuals, hardware
 
 **YAML manifest reference**
 - [The manifest format](yaml/README.md) — envelope, validation, multi-file projects

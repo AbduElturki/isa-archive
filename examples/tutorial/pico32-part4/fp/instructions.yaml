@@ -1,0 +1,72 @@
+# Single-precision floating-point instructions. The compiler infers the float
+# operations (FADD/FSUB/FMUL) from the behaviors because the operands live in
+# the f32 `fpr` file; loads/stores move 32-bit values between memory and fpr.
+
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: FADD
+  description: Single-precision floating-point add
+spec:
+  schema: FRType
+  exec_type: fpu
+  opcode: OP_FP
+  funct7: F7_FP.FADD
+  behavior: "rd = rs1 + rs2"
+  description: "fd ← fs1 + fs2"
+
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: FSUB
+  description: Single-precision floating-point subtract
+spec:
+  schema: FRType
+  exec_type: fpu
+  opcode: OP_FP
+  funct7: F7_FP.FSUB
+  behavior: "rd = rs1 - rs2"
+  description: "fd ← fs1 − fs2"
+
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: FMUL
+  description: Single-precision floating-point multiply
+spec:
+  schema: FRType
+  exec_type: fpu
+  opcode: OP_FP
+  funct7: F7_FP.FMUL
+  behavior: "rd = rs1 * rs2"
+  description: "fd ← fs1 × fs2"
+
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: FLW
+  description: Load a 32-bit float
+spec:
+  schema: FLoadType
+  exec_type: mem_load
+  opcode: LOAD_FP
+  funct3: F3_FMEM.WORD
+  behavior: "rd = mem32[rs1 + imm]"
+  description: "fd ← mem[rs1 + sext(imm)]"
+
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: FSW
+  description: Store a 32-bit float
+spec:
+  schema: FStoreType
+  exec_type: mem_store
+  opcode: STORE_FP
+  funct3: F3_FMEM.WORD
+  behavior: "mem32[rs1 + {imm_11_5, imm_4_0}] = rs2"
+  description: "mem[rs1 + sext(offset)] ← fs2"

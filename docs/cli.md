@@ -28,7 +28,7 @@ Created my-isa/ with 3 files.
 The scaffold defines one 32-register file with `zero`/`ra`/`sp` aliases, one
 register-register layout, and an `ADD` instruction — enough to parse and
 generate every target immediately, and the same starting point the
-[tutorial](tutorial/01-hello-pico32.md) builds on.
+[tutorial](../examples/tutorial/pico32-part1/README.md) builds on.
 
 ## `isa-archive parse`
 
@@ -40,9 +40,9 @@ Loads and validates manifests without writing anything. `PATH` is an ISA
 manifest file or a directory. On success it prints a summary:
 
 ```
-$ isa-archive parse examples/rv32/base/isa.yaml
-Validated examples/rv32/base/isa.yaml
-  [rv32i]  rv32i v2.1  xlen=32  9 schemas  35 instructions  2 operands  6 CSRs
+$ isa-archive parse examples/tutorial/pico32-part4/isa.yaml
+Validated examples/tutorial/pico32-part4/isa.yaml
+  [pico32]  pico32 v0.4  xlen=32  8 schemas  13 instructions  0 operands  0 CSRs
 ```
 
 Validation is strict — a misspelled key is an error, never silently ignored:

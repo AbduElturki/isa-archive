@@ -44,8 +44,17 @@
 
 | Name | Address | Width | Reset Value |
 | --- | --- | --- | --- |
-{% for csr in csrs.values() -%}
-| {{ csr.metadata.name }} | {{ hex(csr.spec.address) }} | {{ csr.spec.width }} | {{ hex(csr.spec.reset_value) }} |
+{% for csr in csrs -%}
+| {{ csr.name }} | {{ hex(csr.address) }} | {{ csr.width }} | {{ hex(csr.reset_value) }} |
+{% endfor %}
+{% for csr in csrs if csr.fields %}
+### {{ csr.name }} fields
+
+| Field | Bits | Access | Description |
+| --- | --- | --- | --- |
+{% for f in csr.fields -%}
+| {{ f.name }} | {{ f.start }}{% if f.end != f.start %}:{{ f.end }}{% endif %} | {{ f.access.value if f.access is not string else f.access }} | {{ f.description or "" }} |
+{% endfor %}
 {% endfor %}
 
 ---

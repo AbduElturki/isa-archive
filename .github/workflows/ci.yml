@@ -56,8 +56,13 @@ jobs:
       # Exercise every file-emitting backend end-to-end (verilog, llvm, c, rust,
       # docs(md), qemu-isa) so a generator regression fails CI even if a unit
       # test misses it. This does not build LLVM/QEMU — it only generates source.
-      - name: Generate all targets for an example ISA
-        run: uv run isa-archive generate -i examples/rv32/base/isa.yaml -t all -o build/smoke
+      - name: Generate all targets for pico32
+        run: uv run isa-archive generate -i examples/tutorial/pico32-part4/isa.yaml -t all -o build/smoke
+
+      - name: Generate pico32 extension layers (float, CSRs)
+        run: |
+          uv run isa-archive generate -i examples/tutorial/pico32-part4/fp/isa.yaml  -t llvm     -o build/smoke-fp
+          uv run isa-archive generate -i examples/tutorial/pico32-part4/sys/isa.yaml -t qemu-isa -o build/smoke-sys
 
       - name: Generate C intrinsics for the NPU probe
         run: uv run isa-archive generate -i examples/npu-probe/isa.yaml -t c -o build/smoke-npu

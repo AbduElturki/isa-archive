@@ -14,9 +14,9 @@ separate install step. Python 3.12+ is required (uv fetches it if needed).
 Verify:
 
 ```sh
-$ uv run isa-archive parse examples/rv32/base/isa.yaml
-Validated examples/rv32/base/isa.yaml
-  [rv32i]  rv32i v2.1  xlen=32  9 schemas  35 instructions  2 operands  6 CSRs
+$ uv run isa-archive parse examples/tutorial/pico32-part4/isa.yaml
+Validated examples/tutorial/pico32-part4/isa.yaml
+  [pico32]  pico32 v0.4  xlen=32  8 schemas  13 instructions  0 operands  0 CSRs
 ```
 
 > Throughout these docs, commands are written as `isa-archive …`. If you

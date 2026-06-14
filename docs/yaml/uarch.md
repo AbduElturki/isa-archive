@@ -12,10 +12,10 @@ Today the uArch manifest is consumed by the **Verilog generator**
 apiVersion: isa-archive/v1
 kind: uArch
 metadata:
-  name: rv32i-classic
-  description: Classic 5-stage in-order single-issue pipeline
+  name: pico32-tiny
+  description: A single-issue in-order pipeline
 spec:
-  isa: rv32i                  # the ISA this implements (by metadata.name)
+  isa: pico32                 # the ISA this implements (by metadata.name)
 
   blocks:
     - name: IntegerALU
@@ -55,20 +55,18 @@ spec:                   blocks:
 Every instruction whose `exec_type` appears in a block's `handles` list is
 implemented by that block's generated module.
 
-## Two implementations, one ISA
+## Many implementations, one ISA
 
-Compare the bundled pair — same `isa: rv32i`, different machines:
-
-- `examples/rv32/uarch/in-order.yaml` — one ALU, one load/store unit,
-  single-issue.
-- `examples/rv32/uarch/superscalar.yaml` — duplicated ALUs (`count: 2`), a
-  pipelined multiplier with `latency: 4`, separate branch unit.
-
-Generate either with:
+A uArch is separate from the ISA, so one ISA can have several — a small
+single-issue core, a wider superscalar one with duplicated ALUs (`count: 2`)
+and a pipelined multiplier (`latency: 4`) — each just a different `blocks:`
+list over the same `isa:`. The tutorial ships
+[`examples/tutorial/pico32-part4/uarch.yaml`](../../examples/tutorial/pico32-part4/uarch.yaml)
+(the `pico32-tiny` block model above). Generate RTL from it with:
 
 ```sh
-isa-archive generate --isa examples/rv32/base/isa.yaml \
-    --uarch examples/rv32/uarch/in-order.yaml -t verilog -o build/rtl
+isa-archive generate --isa examples/tutorial/pico32-part4/isa.yaml \
+    --uarch examples/tutorial/pico32-part4/uarch.yaml -t verilog -o build/rtl
 ```
 
 ## Current boundaries

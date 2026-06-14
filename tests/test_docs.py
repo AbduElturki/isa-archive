@@ -14,8 +14,15 @@ from isa_archive.compiler.loader import Registry, load_isa
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
 DOCS = REPO / "docs"
+EXAMPLES = REPO / "examples"
 
-_MD_FILES = sorted(DOCS.rglob("*.md")) + [REPO / "README.md", REPO / "CONTRIBUTING.md"]
+# The tutorial prose lives beside its code in examples/, so guard those READMEs
+# too — not just docs/.
+_MD_FILES = (
+    sorted(DOCS.rglob("*.md"))
+    + sorted(EXAMPLES.rglob("*.md"))
+    + [REPO / "README.md", REPO / "CONTRIBUTING.md"]
+)
 _LINK_RE = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
 
 
@@ -55,3 +62,17 @@ def test_tutorial_snapshot_parses(isa_yaml):
 def test_tutorial_snapshots_exist():
     # Guard against the glob silently matching nothing.
     assert len(_SNAPSHOTS) >= 4
+
+
+_EXTENSIONS = sorted((REPO / "examples" / "tutorial" / "pico32-part4").glob("*/isa.yaml"))
+
+
+@pytest.mark.parametrize("isa_yaml", _EXTENSIONS, ids=lambda p: p.parent.name)
+def test_extension_layer_parses(isa_yaml):
+    # mul/, fp/, sys/ each extend the part-4 base and must load cleanly.
+    load_isa(str(isa_yaml), Registry())
+
+
+def test_extension_layers_exist():
+    names = {p.parent.name for p in _EXTENSIONS}
+    assert {"mul", "fp", "sys"} <= names

@@ -13,7 +13,7 @@ Three files per language, for software that targets your ISA:
 | `{isa}_structs.h` / `.rs` | a typed struct per [Operand](../yaml/types.md), with constructors and field accessors matching the declared bit layout |
 | `{isa}_csrs.h` / `.rs` | constants and accessors for your CSRs and their fields |
 
-A generated struct, from `examples/rv32/base`'s `Point` operand:
+A generated struct, for a two-field `Point` operand:
 
 ```c
 typedef struct __attribute__((packed)) {
