@@ -1,0 +1,24 @@
+{% import "_macros.j2" as m %}{{ m.file_header('c', isa_name) }}
+#pragma once
+
+// Umbrella header for the {{ isa_name }} ISA description.
+//
+// These headers *describe* the instruction set — enums, a per-instruction
+// metadata table, and decode/field helpers — for you to adopt into your own
+// functional or cycle model. They do not execute instructions.
+//
+//   #include "{{ ns }}_model.h"
+//   using namespace {{ ns }};
+//
+//   Op op = decode(word);                 // identify the instruction
+//   const InstrInfo &i = info(op);         // mnemonic, operands, category, latency
+//   for (unsigned k = 0; k < i.num_operands; ++k) {
+//       const OperandInfo &o = i.operands[k];
+//       uint64_t v = get_bits(word, o.start, o.width);   // register index / raw field
+//   }
+//   int64_t imm = decode_imm(op, word);    // reconstructed immediate
+//   uint32_t cycles = i.latency;           // for a cycle model
+
+#include "{{ ns }}_enums.h"
+#include "{{ ns }}_info.h"
+#include "{{ ns }}_decode.h"

@@ -12,6 +12,7 @@ from .generators.software import generate_software
 from .generators.docs import generate_docs
 from .generators.qemu import generate_qemu, generate_qemu_isa
 from .generators.assembler import generate_asm
+from .generators.cpp_isa import generate_cpp_isa
 
 # Root logger handler — level is adjusted per command via _setup_logging
 _handler = logging.StreamHandler()
@@ -31,6 +32,7 @@ class Target(str, Enum):
     qemu = "qemu"         # complete target: ISA + boilerplate + machine + build system
     qemu_isa = "qemu-isa" # ISA semantics only (flat output)
     asm = "asm"           # standalone assembler + linker script
+    cpp_isa = "cpp-isa"   # descriptive C++ ISA headers (enums + decode/metadata)
     all = "all"
 
 
@@ -70,6 +72,8 @@ def _run_target(t: Target, registry: Registry, output: str, doc_format: DocForma
         generate_qemu_isa(registry, output, clang_format=fmt)
     elif t == Target.asm:
         generate_asm(registry, output)
+    elif t == Target.cpp_isa:
+        generate_cpp_isa(registry, output, clang_format=fmt)
 
 
 @app.command()
@@ -127,7 +131,7 @@ def generate(
     output: str = typer.Option("build", "--output", "-o", help="Output directory"),
     doc_format: DocFormat = typer.Option(DocFormat.md, "--format", "-f", help="Documentation format"),
     strict: bool = typer.Option(False, "--strict", help="Fail if the LLVM backend is missing a required compiler role"),
-    fmt: bool = typer.Option(False, "--format", help="Run clang-format on generated C/C++ (requires clang-format on PATH)"),
+    fmt: bool = typer.Option(False, "--clang-format", help="Run clang-format on generated C/C++ (requires clang-format on PATH)"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable debug logging"),
     quiet: bool = typer.Option(False, "--quiet", "-q", help="Suppress info output"),
 ):

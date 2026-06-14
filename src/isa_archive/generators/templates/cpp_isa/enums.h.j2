@@ -1,0 +1,60 @@
+{% import "_macros.j2" as m %}{{ m.file_header('c', isa_name) }}
+#pragma once
+
+#include <cstdint>
+
+namespace {{ ns }} {
+
+// One enumerator per instruction in the ISA.
+enum class Op : uint16_t {
+    INVALID = 0,
+{%- for it in instrs %}
+    {{ it.enum }},
+{%- endfor %}
+};
+
+inline const char *mnemonic(Op op) {
+    switch (op) {
+{%- for it in instrs %}
+    case Op::{{ it.enum }}: return "{{ it.mnemonic }}";
+{%- endfor %}
+    default: return "<invalid>";
+    }
+}
+
+// One enumerator per architectural register file.
+enum class RegClass : uint8_t {
+    none = 0,
+{%- for rc in reg_classes %}
+    {{ rc.name }},   // {{ rc.count }} x {{ rc.width }}-bit{{ " (float)" if rc.is_float else "" }}
+{%- endfor %}
+};
+
+inline const char *reg_class_name(RegClass rc) {
+    switch (rc) {
+{%- for rc in reg_classes %}
+    case RegClass::{{ rc.name }}: return "{{ rc.raw }}";
+{%- endfor %}
+    default: return "none";
+    }
+}
+
+// Instruction categories, derived from each instruction's exec_type.
+enum class Category : uint8_t {
+{%- for c in categories %}
+    {{ c }},
+{%- endfor %}
+};
+
+inline const char *category_name(Category c) {
+    switch (c) {
+{%- for c in categories %}
+    case Category::{{ c }}: return "{{ c }}";
+{%- endfor %}
+    default: return "none";
+    }
+}
+
+enum class OperandKind : uint8_t { Reg, Imm };
+
+} // namespace {{ ns }}

@@ -1,0 +1,29 @@
+{% import "_macros.j2" as m %}{{ m.file_header('c', isa_name) }}
+// Example: decode a raw instruction word and print its description.
+// Build:  c++ -std=c++17 example_main.cpp -o example
+
+#include <cstdint>
+#include <cstdio>
+
+#include "{{ ns }}_model.h"
+
+int main() {
+    using namespace {{ ns }};
+
+    uint64_t word = 0; // <- put a real {{ isa_name }} instruction word here
+
+    Op op = decode(word);
+    const InstrInfo &i = info(op);
+    std::printf("op=%s  category=%s  latency=%u\n", mnemonic(op),
+                category_name(i.category), i.latency);
+
+    for (unsigned k = 0; k < i.num_operands; ++k) {
+        const OperandInfo &o = i.operands[k];
+        if (o.kind == OperandKind::Reg) {
+            std::printf("  %-6s %s[%llu]\n", o.name, reg_class_name(o.rc),
+                        (unsigned long long)get_bits(word, o.start, o.width));
+        }
+    }
+    std::printf("  imm = %lld\n", (long long)decode_imm(op, word));
+    return 0;
+}

@@ -1,0 +1,48 @@
+{% import "_macros.j2" as m %}{{ m.file_header('c', isa_name) }}
+#pragma once
+
+#include <cstdint>
+
+#include "{{ ns }}_enums.h"
+
+namespace {{ ns }} {
+
+// Instruction word is {{ insn_bits }} bits ({{ insn_bytes }} bytes).
+
+// Extract `width` bits starting at bit `start`.
+inline uint64_t get_bits(uint64_t word, unsigned start, unsigned width) {
+    return (word >> start) & (width >= 64 ? ~0ULL : ((1ULL << width) - 1));
+}
+
+// Sign-extend the low `width` bits of `v`.
+inline int64_t sext(uint64_t v, unsigned width) {
+    const unsigned s = 64 - width;
+    return (int64_t)(v << s) >> s;
+}
+
+// Identify an instruction from its raw word (most-specific match first).
+inline Op decode(uint64_t word) {
+{%- for it in decode_order %}
+    if ((word & {{ "0x%xULL" % it.mask }}) == {{ "0x%xULL" % it.match }}) return Op::{{ it.enum }};
+{%- endfor %}
+    return Op::INVALID;
+}
+
+// Reconstruct the (possibly split, sign-extended) immediate of an instruction.
+// Register operands are read via info(op).operands[i] + get_bits().
+inline int64_t decode_imm(Op op, uint64_t word) {
+    switch (op) {
+{%- for it in instrs %}{% if it.imm %}
+    case Op::{{ it.enum }}:
+{%- if it.imm.combined %}
+        return sext({% for p in it.imm.parts %}{% if not loop.first %} | {% endif %}(get_bits(word, {{ p.hw_low }}, {{ p.hw_width }}) << {{ p.imm_low }}){% endfor %}, {{ it.imm.width }});
+{%- elif it.imm.signed %}
+        return sext(get_bits(word, {{ it.imm.start }}, {{ it.imm.width }}), {{ it.imm.width }});
+{%- else %}
+        return (int64_t)get_bits(word, {{ it.imm.start }}, {{ it.imm.width }});
+{%- endif %}{% endif %}{%- endfor %}
+    default: return 0;
+    }
+}
+
+} // namespace {{ ns }}

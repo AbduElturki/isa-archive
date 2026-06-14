@@ -1,0 +1,49 @@
+# {{ isa_name }} — C++ ISA description headers
+
+Header-only, standalone **C++17** (standard library only). These headers *describe*
+the {{ isa_name }} instruction set so you can build a functional or cycle model on top —
+they do not execute instructions or model state.
+
+## Files
+
+| Header | Contents |
+|---|---|
+| `{{ ns }}_enums.h` | `enum class Op` (one per instruction) + `mnemonic()`; `RegClass`; `Category`; `OperandKind` |
+| `{{ ns }}_info.h` | `struct InstrInfo` / `OperandInfo` + `info(Op)` — opcode, mask/match, operands, category, exec_type, behavior string, latency |
+| `{{ ns }}_decode.h` | `decode(word) -> Op`, `get_bits()` / `sext()`, `decode_imm(op, word)` |
+| `{{ ns }}_model.h` | umbrella include |
+| `example_main.cpp` | a runnable example |
+
+## Use
+
+```cpp
+#include "{{ ns }}_model.h"
+using namespace {{ ns }};
+
+Op op = decode(word);
+const InstrInfo &i = info(op);
+
+// Register operands: read the index out of the word using the field descriptor.
+for (unsigned k = 0; k < i.num_operands; ++k) {
+    const OperandInfo &o = i.operands[k];
+    if (o.kind == OperandKind::Reg)
+        unsigned idx = get_bits(word, o.start, o.width);   // e.g. gpr index
+}
+
+// Immediates (split fields and sign-extension handled for you):
+int64_t imm = decode_imm(op, word);
+
+// Cycle model: each instruction carries a latency from the uArch.
+uint32_t cycles = i.latency;
+```
+
+The `latency` and `exec_type` fields come from the uArch manifest passed with
+`--uarch`; without one, `latency` defaults to `1`.
+
+## Regenerating
+
+```sh
+isa-archive generate --isa <isa>.yaml [--uarch <uarch>.yaml] -t cpp-isa -o build/cpp
+```
+
+Do not edit the generated headers by hand — regenerate from the manifests.
