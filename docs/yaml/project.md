@@ -2,7 +2,7 @@
 
 A **Project** manifest is a checked-in build config: it lists the ISA/uArch
 manifests your project uses and a set of `{ target, output-path }` entries.
-`isa-archive build project.yaml` then generates each target into its path —
+`isa-archive build project.yaml` then generates each target into its path -
 so QEMU files land in your QEMU fork, the LLVM TableGen somewhere else, the
 C++ headers in your model's include dir, all from one command.
 
@@ -34,12 +34,12 @@ spec:
 
 | Key | Default | Meaning |
 |---|---|---|
-| `target` | — | a target or sub-target name (see the taxonomy below) |
-| `output` | — | output directory, relative to the project file |
+| `target` | - | a target or sub-target name (see the taxonomy below) |
+| `output` | - | output directory, relative to the project file |
 | `on_exist` | `overwrite` | `overwrite` (regenerate), `skip` (leave a non-empty output untouched), or `error` (fail) |
 | `clang_format` | `false` | run clang-format on generated C/C++ (needs `clang-format` on PATH) |
 | `strict` | `false` | LLVM: fail if a required compiler role is missing |
-| `format` | — | docs: `md`/`html`/`pdf` (overrides the target default) |
+| `format` | - | docs: `md`/`html`/`pdf` (overrides the target default) |
 
 ## Targets and sub-targets
 

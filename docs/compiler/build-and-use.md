@@ -8,17 +8,27 @@ an ISA you built yourself.
 
 Prerequisites: `git`, `cmake`, `ninja`. The build is the big one-time cost:
 **~40–60 minutes and ~25 GB** for a Release build of LLVM+clang with just
-your target enabled. Rebuilds after ISA changes only recompile your backend —
+your target enabled. Rebuilds after ISA changes only recompile your backend -
 a few minutes.
 
-## 1. Generate — and read the report
+```mermaid
+flowchart TB
+    G["generate -t llvm --strict"] --> C{"coverage complete?"}
+    C -->|"no"| F["fix roles / profile"] --> G
+    C -->|"yes"| CL["clone LLVM 18.1.8"] --> P["patch_llvm.sh"] --> B["cmake + ninja<br/>clang / llc / lld"]
+    B --> REL{"encoding<br/>relocations?"}
+    REL -->|"reuse existing triple"| RUN["clang compiles + links,<br/>run on qemu-system-{isa}"]
+    REL -->|"invent placements"| ASM["standalone assembler only<br/><i>no relocating linker</i>"]
+```
+
+## 1. Generate - and read the report
 
 ```sh
 isa-archive generate --isa my-isa/isa.yaml -t llvm -o build/llvm-gen --strict
 cat build/llvm-gen/llvm/lib/Target/{ISA}/COMPILER_COVERAGE.md
 ```
 
-Don't start a 40-minute build on an INCOMPLETE backend — `--strict` makes
+Don't start a 40-minute build on an INCOMPLETE backend - `--strict` makes
 that impossible. [How to read the report.](roles-and-coverage.md#reading-compiler_coveragemd)
 
 ## 2. Get LLVM and integrate
@@ -58,7 +68,7 @@ llvm-build/bin/clang --target=riscv32-unknown-elf -march=rv32i -mabi=ilp32 \
   (`triple_arch:` in your [ISA manifest](../yaml/isa.md#object-format-identity-triple_arch-elf_machine-)).
   Since only your backend is built into this LLVM, that triple selects *your*
   code generator.
-- `-nostdlib -ffreestanding` — bare metal: no libc, your linker script.
+- `-nostdlib -ffreestanding` - bare metal: no libc, your linker script.
 - Inspect what your compiler did: `clang -S` for assembly in *your*
   mnemonics, or `llvm-build/bin/llc -march={isa-triple}` on LLVM IR.
 
@@ -73,23 +83,23 @@ has a complete, commented set (`start.c`, `link.ld`).
 This is the one place where "everything from YAML" meets a hard external
 fact: **linkers only understand relocations they already know.** A
 relocation is the linker's instruction for patching an address into specific
-bits of an instruction — and stock LLD/GNU ld ship with fixed catalogs
+bits of an instruction - and stock LLD/GNU ld ship with fixed catalogs
 (R_RISCV_*, R_ARM_*, …).
 
 So you have two honest options:
 
-1. **Reuse an existing architecture's immediate-field placements** — then
+1. **Reuse an existing architecture's immediate-field placements** - then
    register under its triple (`triple_arch: riscv32`, `elf_machine: 243`)
    and its relocations patch your instructions correctly, because the bits
    live where the linker expects. Everything else (mnemonics, opcode values,
    register names, ABI, semantics) stays yours. This is the proven path: the
    tutorial's pico32 links with stock LLD this way.
-2. **Invent your own placements** — generation works, the compiler works,
+2. **Invent your own placements** - generation works, the compiler works,
    `clang -c` emits objects… and no existing linker can finally link them.
    You keep: the simulator, and the
    [standalone assembler](../targets/assembler.md) (which assembles and
    places programs without a relocating linker). Relocation names that don't
-   exist in the LLVM you build against will fail that LLVM build — the
+   exist in the LLVM you build against will fail that LLVM build - the
    boundary shows up early, not silently.
 
 Decide this before designing your encodings if compiled C is a goal.
@@ -101,17 +111,17 @@ qemu-system-{isa} -M {isa}-virt -display none -serial stdio -monitor none \
     -bios none -kernel prog.elf
 ```
 
-The same machine your [QEMU guide](../qemu/build-and-run.md) built — the
+The same machine your [QEMU guide](../qemu/build-and-run.md) built - the
 full loop: your YAML compiled your C and your YAML executes it.
 
 ## Current boundaries
 
 - **LLVM version**: the generated C++ is written against LLVM 18.1.8's APIs.
   Other majors will likely need adjustments in the generated files (LLVM's
-  internal C++ APIs change between releases) — pin 18.1.8.
+  internal C++ APIs change between releases) - pin 18.1.8.
 - **The relocation ceiling** (above): novel encodings link only via the
   standalone assembler today.
-- `-march`/`-mabi` flags follow the *triple* you registered under — for
+- `-march`/`-mabi` flags follow the *triple* you registered under - for
   `riscv32` use `-march=rv32i -mabi=ilp32` regardless of your actual
   instruction set; they configure clang's driver, while code generation is
   entirely your backend.

@@ -11,7 +11,7 @@ The Verilog target pairs your ISA with a [uArch manifest](../yaml/uarch.md)
 | File | Contents |
 |---|---|
 | `{isa}_operands.sv` | packed-struct typedefs for your [Operands](../yaml/types.md) |
-| `{uarch}_{Block}.sv` | one module per uArch block — combinational datapath implementing every instruction the block `handles`, decoded from the instruction word, semantics from `behavior:` |
+| `{uarch}_{Block}.sv` | one module per uArch block - combinational datapath implementing every instruction the block `handles`, decoded from the instruction word, semantics from `behavior:` |
 | `{uarch}_top.sv` | a top-level skeleton instantiating the blocks |
 
 A block module's interface (from the pico32-tiny uArch):
@@ -37,10 +37,18 @@ Instruction routing comes from the `exec_type` ↔ `handles` link
 per-instruction datapath logic is translated from the same `behavior:` lines
 that drive the simulator and compiler.
 
-## What it is — and isn't
+```mermaid
+flowchart LR
+    I["instruction word"] --> DEC["decode"]
+    DEC --> R["route by exec_type to handles"]
+    R --> M["{Block} module<br/><i>datapath from behavior:</i>"]
+    M --> O["outputs<br/>rd_val · pc_we · pc_next · mem_req"]
+```
+
+## What it is - and isn't
 
 It **is** a synthesizable starting skeleton whose instruction semantics are
-guaranteed to match your simulator (same source of truth) — useful for
+guaranteed to match your simulator (same source of truth) - useful for
 architecture exploration, area/timing sketches, and as the seed of a real
 implementation.
 
@@ -54,4 +62,4 @@ structure but the generator does not (yet) build hazard logic from them.
 - `--uarch` is required for block generation; without it only
   `{isa}_operands.sv` is emitted.
 - Behaviors using memory access generate request/response port signals, not a
-  bus protocol — wire them to your memory system.
+  bus protocol - wire them to your memory system.

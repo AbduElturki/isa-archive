@@ -35,21 +35,21 @@ spec:
 `xlen` is the **data width** in bits: the width of the program counter,
 of addresses/pointers, and of the primary integer register file. Allowed
 values: **8, 16, 32, 64, 128**. It is independent of the *instruction encoding*
-width (a 16-bit-data ISA can have 32-bit instructions — the encoding width
+width (a 16-bit-data ISA can have 32-bit instructions - the encoding width
 comes from the [schemas](schemas.md)).
 
 Notes for the extremes:
-- **8/16** — fully supported; QEMU emulates them over a 32-bit machine word
+- **8/16** - fully supported; QEMU emulates them over a 32-bit machine word
   with PC and addresses masked to xlen (your `machine:` layout must fit the
-  small address space — you'll get a clear error if it doesn't).
-- **128** — registers and arithmetic are true 128-bit; the PC and address
+  small address space - you'll get a clear error if it doesn't).
+- **128** - registers and arithmetic are true 128-bit; the PC and address
   space are 64-bit in QEMU (the simulator has no 128-bit addresses, matching
   how real 128-bit designs work).
 
 `byte_order` (`little` default, or `big`) drives the QEMU target's
 endianness, the LLVM data layout, and the byte order of emitted encodings.
 
-## `state.registers` — register files
+## `state.registers` - register files
 
 ```yaml
 state:
@@ -60,33 +60,33 @@ state:
       zero_register: 0      # optional: this index always reads 0
       canonical_prefix: x   # registers named x0..x31 (default: first letter)
       type: i32             # element type (optional, see below)
-      aliases:              # ABI names (optional but important — see below)
+      aliases:              # ABI names (optional but important - see below)
         zero: 0
         ra: 1
         sp: 2
         a0: 10
 ```
 
-You can declare **several files** — integer + floating point, vector,
+You can declare **several files** - integer + floating point, vector,
 predicate. Each is independent state with its own width and count.
 
 **`aliases` are the source of all CPU conventions.** `sp`, `ra`, `zero`, and
 the argument/saved-register names come *only* from here. Nothing is ever
 guessed from register positions: an ISA with no `sp` alias simply has no stack
 pointer anywhere in the generated code (correct for accelerator-style
-targets). If you want to compile C, declare at least `zero`, `ra`, and `sp` —
+targets). If you want to compile C, declare at least `zero`, `ra`, and `sp` -
 the coverage report will tell you if they're missing.
 
 **`type`** sets the element type:
-- a scalar — `i32` (default behavior), `f32`/`f64` (an IEEE-float file: gets
+- a scalar - `i32` (default behavior), `f32`/`f64` (an IEEE-float file: gets
   float arithmetic, float load/store, and a float calling convention),
-- or an [Operand](types.md) name — the file holds structured values, treated
+- or an [Operand](types.md) name - the file holds structured values, treated
   as opaque storage by the compiler.
 
 **Width matters per generator.** Any width simulates. For the *compiler*, a
 file becomes an allocatable register class only if it's float-typed or
 xlen-wide; other files (1-bit predicates, wide accumulators) stay
-architectural state, and instructions using them are simulator-only — see
+architectural state, and instructions using them are simulator-only - see
 [the compiler guide](../compiler/README.md#register-files-and-the-compiler).
 In QEMU, files up to 64 bits (and exactly 128 bits) support direct arithmetic
 in behaviors; details in [the QEMU guide](../qemu/README.md#how-register-files-are-stored).
@@ -94,21 +94,21 @@ in behaviors; details in [the QEMU guide](../qemu/README.md#how-register-files-a
 Three real configurations to crib from:
 
 ```yaml
-# examples/tutorial/pico32-part4 — one integer file with ABI aliases
+# examples/tutorial/pico32-part4 - one integer file with ABI aliases
 - { name: gpr, width: 32, count: 32, zero_register: 0, canonical_prefix: r,
     aliases: { zero: 0, ra: 1, sp: 2, a0: 10, ... } }
 
-# examples/tutorial/pico32-part4/fp — integer + single-precision float
+# examples/tutorial/pico32-part4/fp - integer + single-precision float
 - { name: gpr, width: 32, count: 32, zero_register: 0 }
 - { name: fpr, width: 32, count: 32, type: f32 }
 
-# examples/npu-probe — accelerator: 128-bit vectors + 1-bit predicates
+# examples/npu-probe - accelerator: 128-bit vectors + 1-bit predicates
 - { name: gpr,  width: 32,  count: 16 }
 - { name: vreg, width: 128, count: 16 }
 - { name: preg, width: 1,   count: 8 }
 ```
 
-## `state.csrs` — control/status registers
+## `state.csrs` - control/status registers
 
 ```yaml
 state:
@@ -126,7 +126,7 @@ state:
 and accessors in the generated C/Rust headers, CSR logic in the Verilog
 output, and tables in the manual.
 
-## `abi` — the calling convention
+## `abi` - the calling convention
 
 ```yaml
 abi:
@@ -145,7 +145,7 @@ become argument registers, `s*` plus `ra/sp/gp/tp` become callee-saved, the
 first two argument registers return values, `s0` becomes the frame pointer.
 Explicit beats implicit for anything you care about.
 
-## `machine` — the QEMU machine
+## `machine` - the QEMU machine
 
 ```yaml
 machine:
@@ -158,16 +158,16 @@ machine:
       - { name: poweroff, type: sifive_test, base: 0x00100000 }
 ```
 
-This becomes `hw/{isa}/virt.c` — a minimal board with your RAM layout and
-devices. Two device types are available today: `ns16550` (a UART — write a
+This becomes `hw/{isa}/virt.c` - a minimal board with your RAM layout and
+devices. Two device types are available today: `ns16550` (a UART - write a
 byte to its base address and it appears on the console) and `sifive_test`
 (a software power switch: write `0x5555` for "exit 0", `0x3333` for "exit
 non-zero"). [Tutorial part 1](../../examples/tutorial/pico32-part1/README.md) uses both.
 
-For a narrow `xlen`, the whole layout must fit in `2^xlen` bytes — generation
+For a narrow `xlen`, the whole layout must fit in `2^xlen` bytes - generation
 fails with a clear message otherwise.
 
-## `compiler` — the target profile
+## `compiler` - the target profile
 
 ```yaml
 compiler:
@@ -180,12 +180,12 @@ compiler:
 Declares what the generated compiler is *for*, which decides what "complete"
 means in the coverage report:
 
-- **`c-baremetal`** (default) — the backend must lower freestanding C: full
-  ALU, word-size load/store, branches, calls, a stack — and the `zero`/`ra`/`sp`
+- **`c-baremetal`** (default) - the backend must lower freestanding C: full
+  ALU, word-size load/store, branches, calls, a stack - and the `zero`/`ra`/`sp`
   aliases must exist.
-- **`kernel-only`** — a compute target (GPU/NPU style). Nothing is required;
+- **`kernel-only`** - a compute target (GPU/NPU style). Nothing is required;
   a stack-less ISA is complete on its own terms. See `examples/npu-probe`.
-- **`custom`** — exactly the roles listed under `requires:`.
+- **`custom`** - exactly the roles listed under `requires:`.
 
 Details: [compiler roles & coverage](../compiler/roles-and-coverage.md).
 
@@ -207,10 +207,10 @@ elf_relocations:            # optional: fixup → relocation name overrides
 **Why you'd reuse a real triple:** generating a compiler is one thing;
 *linking* its output is another. Linkers only understand relocations they
 already know. If your immediate-field placements match an existing
-architecture's, you can register under its triple and reuse its relocations —
+architecture's, you can register under its triple and reuse its relocations -
 then any stock linker links your programs. That's exactly what the
 [tutorial's pico32](../../examples/tutorial/README.md) does with `riscv32`.
-The full story: [linking — the ELF reality](../compiler/build-and-use.md#linking-the-elf-reality).
+The full story: [linking - the ELF reality](../compiler/build-and-use.md#linking-the-elf-reality).
 
 ## Current boundaries
 
@@ -218,7 +218,7 @@ The full story: [linking — the ELF reality](../compiler/build-and-use.md#linki
   space at 64 bits (xlen=128 data is fine, 128-bit *addresses* are not):
   generation fails with a message explaining the limit.
 - Register files wider than 64 bits (other than exactly 128) hold state but
-  can't be operated on in behaviors yet — the error names the instruction and
+  can't be operated on in behaviors yet - the error names the instruction and
   the file.
 - The machine model offers the two device types listed above; other
   peripherals mean editing the generated `virt.c` (it's small and readable).

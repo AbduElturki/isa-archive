@@ -2,7 +2,7 @@
 
 Three small kinds that keep the big ones readable.
 
-## Constant — a named number
+## Constant - a named number
 
 ```yaml
 apiVersion: isa-archive/v1
@@ -14,7 +14,7 @@ spec: { value: 0x23, width: 7 }
 Referenced by bare name wherever a fixed value is needed:
 `opcode: STORE`.
 
-## Enum — named values for a field
+## Enum - named values for a field
 
 ```yaml
 apiVersion: isa-archive/v1
@@ -26,11 +26,11 @@ spec:
 ```
 
 Two reference forms:
-- on a schema field: `type: enum.F3_BRANCH` — documents what the field means
+- on a schema field: `type: enum.F3_BRANCH` - documents what the field means
   and validates fills against the member list;
 - in an instruction: `funct3: F3_BRANCH.BEQ`.
 
-## Operand — a structured value type
+## Operand - a structured value type
 
 An Operand gives internal structure to a value: named bit-fields, optionally
 nested, with constraints.
@@ -52,15 +52,15 @@ spec:
 
 Operands appear in three places:
 
-1. **Behaviors** — construct and access them like structs:
+1. **Behaviors** - construct and access them like structs:
    ```yaml
    behavior: |
      v = Vec2(rs1, rs2)
      rd = v.lo + v.hi
    ```
-2. **Immediate fields** — a schema field typed `struct.Vec2` decodes into the
+2. **Immediate fields** - a schema field typed `struct.Vec2` decodes into the
    structured form.
-3. **Register files** — `type: Vec2` on a register file declares that its
+3. **Register files** - `type: Vec2` on a register file declares that its
    registers hold this structure (the compiler treats the file as opaque
    `i<width>` storage; behaviors get the fields).
 

@@ -1,6 +1,6 @@
 # The manifest format
 
-An ISA is described by YAML manifests. Every manifest — regardless of kind —
+An ISA is described by YAML manifests. Every manifest - regardless of kind -
 has the same envelope:
 
 ```yaml
@@ -28,7 +28,7 @@ Multiple manifests can live in one file, separated by `---`.
 | `uArch` | A micro-architecture implementing the ISA (for `-t verilog`) | [uarch.md](uarch.md) |
 | `Project` | A build config: which targets to generate, and where (`isa-archive build`) | [project.md](project.md) |
 
-Instruction semantics are written in a small Python-like language — the
+Instruction semantics are written in a small Python-like language - the
 [behavior DSL](behavior.md).
 
 ## Validation is strict
@@ -80,7 +80,7 @@ pico32-part4/
 An ISA can inherit everything from a base and add to it:
 
 ```yaml
-# examples/tutorial/pico32-part4/mul/isa.yaml — the MUL extension
+# examples/tutorial/pico32-part4/mul/isa.yaml - the MUL extension
 spec:
   version: "0.4"
   extends: "../isa.yaml"

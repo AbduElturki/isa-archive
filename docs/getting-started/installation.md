@@ -8,7 +8,7 @@ cd isa-archive
 uv run isa-archive --help
 ```
 
-`uv run` resolves and installs the dependencies on first use — there is no
+`uv run` resolves and installs the dependencies on first use - there is no
 separate install step. Python 3.12+ is required (uv fetches it if needed).
 
 Verify:
@@ -21,7 +21,7 @@ Validated examples/tutorial/pico32-part4/isa.yaml
 
 > Throughout these docs, commands are written as `isa-archive …`. If you
 > haven't installed the package into your environment, prefix them with
-> `uv run` (from the repository root) — the behavior is identical.
+> `uv run` (from the repository root) - the behavior is identical.
 
 ## What you'll need later (optional now)
 
@@ -37,5 +37,5 @@ from the generated output, which needs the usual native build tools:
 On macOS: `brew install meson ninja cmake`. On Debian/Ubuntu:
 `apt install meson ninja-build cmake build-essential`.
 
-You can install these when the tutorial asks for them — everything up to
+You can install these when the tutorial asks for them - everything up to
 "build the simulator" works without them.

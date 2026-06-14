@@ -1,4 +1,4 @@
-# Quickstart — five minutes, no builds
+# Quickstart - five minutes, no builds
 
 Everything here runs instantly: no QEMU build, no LLVM build. We'll use the
 bundled pico32 example as the guinea pig, then scaffold an ISA of your own.
@@ -29,7 +29,7 @@ $ isa-archive generate --isa examples/tutorial/pico32-part4/isa.yaml -t docs -f 
 $ open build/manual/pico32_reference.html
 ```
 
-A browsable instruction reference — encodings, fields, behaviors, CSRs — straight
+A browsable instruction reference - encodings, fields, behaviors, CSRs - straight
 from the YAML.
 
 ## 3. Generate an assembler and assemble a program
@@ -48,7 +48,7 @@ $ xxd tiny.bin
 ```
 
 A self-contained assembler that knows your mnemonics, register names, ABI
-aliases, and encodings — generated, not written.
+aliases, and encodings - generated, not written.
 
 ## 4. Scaffold your own ISA
 
@@ -56,9 +56,9 @@ aliases, and encodings — generated, not written.
 $ isa-archive init my-isa --xlen 32 --output-dir .
 Created my-isa/ with 3 files.
 
-  isa.yaml          — ISA root (xlen=32, 32 GPRs)
-  layouts.yaml      — RType instruction schema
-  instructions.yaml — ADD instruction
+  isa.yaml          - ISA root (xlen=32, 32 GPRs)
+  layouts.yaml      - RType instruction schema
+  instructions.yaml - ADD instruction
 
 $ isa-archive parse my-isa/isa.yaml
 ```

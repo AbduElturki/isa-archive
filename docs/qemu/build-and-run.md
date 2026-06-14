@@ -1,12 +1,20 @@
 # Building and running your simulator
 
 This is the manual, understand-every-step version. The automated equivalent
-for the bundled pico32 example is `bash examples/tutorial/scripts/01_build_qemu.sh` —
+for the bundled pico32 example is `bash examples/tutorial/scripts/01_build_qemu.sh` -
 same steps, scripted. [Tutorial part 1](../../examples/tutorial/pico32-part1/README.md)
 walks this for an ISA you build yourself.
 
 Prerequisites: `git`, `meson`, `ninja` (macOS: `brew install meson ninja`).
 First build ~15 minutes and ~2 GB; rebuilds after ISA changes are seconds.
+
+```mermaid
+flowchart LR
+    G["generate -t qemu"] --> CL["clone QEMU v9.2.0"] --> P["patch_qemu.sh<br/><i>idempotent</i>"]
+    P --> CF["configure --target-list"] --> N["ninja"] --> RUN["run -M {isa}-virt<br/>-kernel prog.elf"]
+    E["edit your YAML"] -.->|"rebuild loop"| G
+    RUN -.->|"iterate"| E
+```
 
 ## 1. Generate
 
@@ -14,7 +22,7 @@ First build ~15 minutes and ~2 GB; rebuilds after ISA changes are seconds.
 isa-archive generate --isa my-isa/isa.yaml -t qemu -o build/qemu-gen
 ```
 
-Read the generated `INTEGRATE.md` — it lists exactly what the next step will
+Read the generated `INTEGRATE.md` - it lists exactly what the next step will
 do to the QEMU tree.
 
 ## 2. Get QEMU and integrate
@@ -27,7 +35,7 @@ bash build/qemu-gen/patch_qemu.sh qemu-src
 ```
 
 `patch_qemu.sh` copies `target/{isa}/`, `hw/{isa}/`, and `configs/` into the
-tree and applies the few one-line registrations QEMU needs (it's idempotent —
+tree and applies the few one-line registrations QEMU needs (it's idempotent -
 rerun it after every regeneration).
 
 ## 3. Configure and build
@@ -47,7 +55,7 @@ You now have `qemu-build/qemu-system-{isa}`.
 ```sh
 isa-archive generate --isa my-isa/isa.yaml -t qemu -o build/qemu-gen
 bash build/qemu-gen/patch_qemu.sh qemu-src
-ninja -C qemu-build          # incremental — seconds
+ninja -C qemu-build          # incremental - seconds
 ```
 
 ## 4. Run a program
@@ -61,41 +69,41 @@ qemu-system-pico32 -M pico32-virt -display none -serial stdio -monitor none \
     -bios none -kernel hello.elf
 ```
 
-- `-M {isa}-virt` — your generated machine.
-- `-serial stdio` — the `ns16550` UART becomes your terminal: every byte the
+- `-M {isa}-virt` - your generated machine.
+- `-serial stdio` - the `ns16550` UART becomes your terminal: every byte the
   program stores to the UART base address appears here.
-- `-kernel` — an ELF (from the [generated assembler](../targets/assembler.md)
+- `-kernel` - an ELF (from the [generated assembler](../targets/assembler.md)
   with `--elf`, or from [your generated clang](../compiler/build-and-use.md)).
 
 **Exiting**: with a `sifive_test` device declared, the program writes `0x5555`
 to its base address and QEMU exits with status 0 (`0x3333` → failure). Make
-that write the program's *last action* (or spin afterwards) — see the
+that write the program's *last action* (or spin afterwards) - see the
 [tutorial](../../examples/tutorial/pico32-part1/README.md#run-it) for the idiom.
 
 ## Debugging your ISA
 
 | Tool | What it shows |
 |---|---|
-| `-d in_asm` | each guest instruction as it's translated — *is my encoding decoded as the instruction I meant?* |
-| `-d in_asm,op` | plus the JIT ops it became — *is the behavior what I wrote?* |
+| `-d in_asm` | each guest instruction as it's translated - *is my encoding decoded as the instruction I meant?* |
+| `-d in_asm,op` | plus the JIT ops it became - *is the behavior what I wrote?* |
 | `-d guest_errors` | constraint rejections, illegal instructions, unhandled exceptions with PC |
 | `-s -S` | gdb stub: connect `gdb` / `lldb` to port 1234, single-step your CPU |
 
 A program that prints nothing and exits oddly usually fetched zeros after
-running off its own end — check that it ends with the power-off write or an
+running off its own end - check that it ends with the power-off write or an
 infinite loop, and run with `-d guest_errors`.
 
 ## Troubleshooting
 
-- **`configure` can't find the target** — `patch_qemu.sh` wasn't run against
+- **`configure` can't find the target** - `patch_qemu.sh` wasn't run against
   this source tree, or you typo'd `--target-list` (it's `{isa}-softmmu`,
   lowercase ISA name).
-- **Build errors in `target/{isa}/`** — regenerate and re-patch; a stale
+- **Build errors in `target/{isa}/`** - regenerate and re-patch; a stale
   generated tree mixed with a new one is the usual cause. The patch script is
   safe to rerun.
-- **No UART output** — confirm `-serial stdio`, and that the program writes
+- **No UART output** - confirm `-serial stdio`, and that the program writes
   to the UART base address from your `machine:` block (a common slip:
   building the address with the wrong upper immediate).
-- **QEMU version mismatch** — the generated code is validated against
+- **QEMU version mismatch** - the generated code is validated against
   v9.2.0; other versions may need small API adjustments in the generated
   files.

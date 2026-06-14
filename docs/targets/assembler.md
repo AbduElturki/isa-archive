@@ -6,11 +6,11 @@ isa-archive generate --isa my-isa/isa.yaml -t asm -o build/asm
 
 Produces two files:
 
-- **`{isa}_asm.py`** — a self-contained Python assembler. No dependencies, no
+- **`{isa}_asm.py`** - a self-contained Python assembler. No dependencies, no
   build step. It knows your mnemonics, your register names *and ABI aliases*,
   your encodings (including [split immediates](../yaml/schemas.md#split-immediates)),
   and your machine's load address.
-- **`linker.ld`** — a matching linker script for the `machine:` memory map.
+- **`linker.ld`** - a matching linker script for the `machine:` memory map.
 
 ## Assembling
 
@@ -34,19 +34,19 @@ loop:                       # labels; branch/jump targets are labels or integers
 ```
 
 Operand order follows the schema's field order (destination register first,
-then sources, then the immediate). Branch and jump targets are labels —
+then sources, then the immediate). Branch and jump targets are labels -
 the assembler computes the PC-relative offsets and packs the scattered
 immediate bits.
 
 ## When this is your whole toolchain
 
-- **Bring-up** — it exists the moment your YAML parses; nothing to build.
+- **Bring-up** - it exists the moment your YAML parses; nothing to build.
   [Tutorial part 1](../../examples/tutorial/pico32-part1/README.md) runs its
   first program this way.
-- **Invented encodings** — if your immediate placements don't match any
+- **Invented encodings** - if your immediate placements don't match any
   existing architecture, [no stock linker can link your objects](../compiler/build-and-use.md#linking-the-elf-reality);
   this assembler doesn't need one (it places the whole program itself).
-- **Encoding checks** — quick "does this assemble to the bits I expect"
+- **Encoding checks** - quick "does this assemble to the bits I expect"
   experiments, golden files in CI.
 
 ## Current boundaries

@@ -3,7 +3,7 @@
 Define your instruction set once, in YAML. Generate everything else:
 
 - a **QEMU system emulator** that boots and runs programs for your ISA
-- an **LLVM backend** — a real `clang` that compiles C for your ISA
+- an **LLVM backend** - a real `clang` that compiles C for your ISA
 - a **standalone assembler** + linker script (zero dependencies)
 - **C and Rust intrinsics** headers for your custom instructions
 - **SystemVerilog** hardware models
@@ -28,21 +28,21 @@ generated `qemu-system-pico32`.
 ## All pages
 
 **Getting started**
-- [Installation](getting-started/installation.md) — install the tool; what you'll need later for toolchain builds
-- [Quickstart](getting-started/quickstart.md) — validate, generate a manual, assemble a program — in minutes
-- [Concepts](getting-started/concepts.md) — the manifest kinds and the generation pipeline
+- [Installation](getting-started/installation.md) - install the tool; what you'll need later for toolchain builds
+- [Quickstart](getting-started/quickstart.md) - validate, generate a manual, assemble a program - in minutes
+- [Concepts](getting-started/concepts.md) - the manifest kinds and the generation pipeline
 
-**Tutorial — build pico32 from an empty directory** (lives in `examples/tutorial/`)
-- [Overview](../examples/tutorial/README.md) — what you'll build, and one design decision explained
-- [Part 1 — Hello, pico32](../examples/tutorial/pico32-part1/README.md) — 4 instructions, a UART, and a working simulator
-- [Part 2 — A real instruction set](../examples/tutorial/pico32-part2/README.md) — branches, loads, jumps; loops in assembly
-- [Part 3 — Compiling C](../examples/tutorial/pico32-part3/README.md) — ABI, compiler roles, and a clang of your own
-- [Part 4 — Growing the ISA](../examples/tutorial/pico32-part4/README.md) — extensions, intrinsics, manuals, hardware
+**Tutorial - build pico32 from an empty directory** (lives in `examples/tutorial/`)
+- [Overview](../examples/tutorial/README.md) - what you'll build, and one design decision explained
+- [Part 1 - Hello, pico32](../examples/tutorial/pico32-part1/README.md) - 4 instructions, a UART, and a working simulator
+- [Part 2 - A real instruction set](../examples/tutorial/pico32-part2/README.md) - branches, loads, jumps; loops in assembly
+- [Part 3 - Compiling C](../examples/tutorial/pico32-part3/README.md) - ABI, compiler roles, and a clang of your own
+- [Part 4 - Growing the ISA](../examples/tutorial/pico32-part4/README.md) - extensions, intrinsics, manuals, hardware
 
 **YAML manifest reference**
-- [The manifest format](yaml/README.md) — envelope, validation, multi-file projects
+- [The manifest format](yaml/README.md) - envelope, validation, multi-file projects
 - [ISA](yaml/isa.md) · [Schema](yaml/schemas.md) · [Instruction](yaml/instructions.md) · [Operand / Enum / Constant](yaml/types.md) · [uArch](yaml/uarch.md)
-- [The behavior DSL](yaml/behavior.md) — how instruction semantics are written
+- [The behavior DSL](yaml/behavior.md) - how instruction semantics are written
 
 **Guides**
 - [QEMU: the generated simulator](qemu/README.md) and [building & running it](qemu/build-and-run.md)
@@ -52,5 +52,5 @@ generated `qemu-system-pico32`.
 - [Standalone assembler](targets/assembler.md) · [C/Rust intrinsics](targets/intrinsics.md) · [SystemVerilog](targets/verilog.md) · [Reference manuals](targets/reference-manuals.md)
 
 **Reference**
-- [CLI reference](cli.md) — every command, flag, and target
-- [Examples tour](examples.md) — what each `examples/` directory demonstrates
+- [CLI reference](cli.md) - every command, flag, and target
+- [Examples tour](examples.md) - what each `examples/` directory demonstrates

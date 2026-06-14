@@ -1,4 +1,4 @@
-# Schema — an instruction bit layout
+# Schema - an instruction bit layout
 
 A Schema names the bit positions an instruction format uses. Many
 instructions share one schema: all of RISC-V's register-register ALU ops are
@@ -9,7 +9,7 @@ apiVersion: isa-archive/v1
 kind: Schema
 metadata:
   name: RType
-  description: Register-register — rd ← rs1 op rs2
+  description: Register-register - rd ← rs1 op rs2
 spec:
   length: 32
   compiler: { roles: [alu_rr] }          # optional, see "Compiler roles"
@@ -39,15 +39,15 @@ fields must not overlap and must fit within `length`.
 
 | `role` | The bits hold… | `type` |
 |---|---|---|
-| `opcode` | the instruction's opcode, filled from its `opcode:` | — |
+| `opcode` | the instruction's opcode, filled from its `opcode:` | - |
 | `constant` | a per-instruction fixed value (`funct3: …`) | optional `enum.<Enum>` |
-| `reserved` | always zero | — |
+| `reserved` | always zero | - |
 | `register` | an index into a register file | **required**: the file name (`gpr`) |
 | `immediate` | an operand value | `signed`, `enum.<Enum>`, or `struct.<Operand>` |
 
 The field *name* is how behaviors refer to it: a schema with fields `rd`,
 `rs1`, `rs2` lets an instruction say `behavior: "rd = rs1 + rs2"`. Names are
-yours to choose — nothing is special about `rd`/`rs1`.
+yours to choose - nothing is special about `rd`/`rs1`.
 
 An `immediate` typed `signed` is sign-extended where the behavior asks for it
 and gets a signed operand type in the compiler; untyped immediates are
@@ -58,7 +58,7 @@ unsigned.
 Hardware often scatters an immediate's bits to keep register fields in fixed
 positions. Name the pieces `imm_<high>` or `imm_<high>_<low>` (the bit range
 of the *logical* immediate each piece carries) and the tool reassembles them
-everywhere — decoder, compiler patterns, fixups, assembler:
+everywhere - decoder, compiler patterns, fixups, assembler:
 
 ```yaml
 # A 13-bit branch offset, bit 0 implied zero, scattered across four fields
@@ -74,7 +74,7 @@ fields:
   - { name: imm_12,   start: 31, width: 1, role: immediate }
 ```
 
-In the behavior you reassemble the logical value with bit concatenation —
+In the behavior you reassemble the logical value with bit concatenation -
 note the literal `0` supplying the implied bit 0:
 
 ```yaml
@@ -95,13 +95,13 @@ illegal, with your message logged) and assertions in the generated intrinsics:
 ```yaml
 constraints:
   - { expr: "rs1 != rs2", message: "source registers must differ" }
-  - "imm % 4 == 0"            # string shorthand — message defaults to the expr
+  - "imm % 4 == 0"            # string shorthand - message defaults to the expr
 ```
 
 ## Schema-level compiler roles
 
 `compiler: { roles: [...] }` on a schema declares the *shape* of every
-instruction using it — e.g. "everything in this format is a register-register
+instruction using it - e.g. "everything in this format is a register-register
 ALU op" (`alu_rr`) or "everything here is a conditional branch" (`branch`).
 The specific operation still comes from each instruction's behavior. See
 [compiler roles & coverage](../compiler/roles-and-coverage.md).

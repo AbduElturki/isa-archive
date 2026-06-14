@@ -1,4 +1,4 @@
-# Instruction — one operation
+# Instruction - one operation
 
 ```yaml
 apiVersion: isa-archive/v1
@@ -57,12 +57,12 @@ manual.
 A free-form tag (e.g. `alu_int`, `mem_load`, `alu_branch`) connecting the
 instruction to [uArch](uarch.md) functional blocks: a block that
 `handles: [alu_int]` executes every instruction tagged `alu_int`. Only the
-Verilog generator consumes it — omit it until you generate hardware.
+Verilog generator consumes it - omit it until you generate hardware.
 
 ## `compiler.roles`
 
 Instruction-level role tags, the most specific layer of the
-[role system](../compiler/roles-and-coverage.md). You rarely need them — most
+[role system](../compiler/roles-and-coverage.md). You rarely need them - most
 roles are inferred from the behavior. The classic exceptions (constant
 materialization, stack adjustment) look like:
 

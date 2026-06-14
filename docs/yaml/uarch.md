@@ -1,8 +1,8 @@
-# uArch — a micro-architecture for your ISA
+# uArch - a micro-architecture for your ISA
 
 An ISA says *what* instructions do; a uArch manifest says *what hardware
 executes them*: functional blocks, their counts, latencies, and pipelining.
-It's a separate kind so one ISA can have several implementations — an
+It's a separate kind so one ISA can have several implementations - an
 in-order single-issue chassis and a superscalar one, from the same ISA.
 
 Today the uArch manifest is consumed by the **Verilog generator**
@@ -55,11 +55,20 @@ spec:                   blocks:
 Every instruction whose `exec_type` appears in a block's `handles` list is
 implemented by that block's generated module.
 
+```mermaid
+flowchart LR
+    A["alu_int"] --> IALU["IntegerALU<br/><i>handles: alu_int, alu_branch, alu_jump</i>"]
+    AB["alu_branch"] --> IALU
+    AJ["alu_jump"] --> IALU
+    ML["mem_load"] --> LSU["LoadStoreUnit<br/><i>handles: mem_load, mem_store</i>"]
+    MS["mem_store"] --> LSU
+```
+
 ## Many implementations, one ISA
 
-A uArch is separate from the ISA, so one ISA can have several — a small
+A uArch is separate from the ISA, so one ISA can have several - a small
 single-issue core, a wider superscalar one with duplicated ALUs (`count: 2`)
-and a pipelined multiplier (`latency: 4`) — each just a different `blocks:`
+and a pipelined multiplier (`latency: 4`) - each just a different `blocks:`
 list over the same `isa:`. The tutorial ships
 [`examples/tutorial/pico32-part4/uarch.yaml`](../../examples/tutorial/pico32-part4/uarch.yaml)
 (the `pico32-tiny` block model above). Generate RTL from it with:
@@ -72,5 +81,5 @@ isa-archive generate --isa examples/tutorial/pico32-part4/isa.yaml \
 ## Current boundaries
 
 - uArch data (latencies, issue width) shapes the generated RTL skeletons
-  only — the QEMU model stays purely functional and the compiler's scheduling
+  only - the QEMU model stays purely functional and the compiler's scheduling
   model doesn't consume it yet.

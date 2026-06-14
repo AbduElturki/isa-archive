@@ -7,7 +7,11 @@ isa-archive generate --isa my-isa/isa.yaml -t docs -f pdf  -o build/manual   # P
 isa-archive generate --isa my-isa/isa.yaml -t docs -f all  -o build/manual   # all three
 ```
 
-Produces `{isa}_reference.md` / `.html` / `.pdf` — a human-readable
+Each format is also addressable as a sub-target - `-t docs-md`, `-t docs-html`,
+`-t docs-pdf` - the form a [Project](../yaml/project.md) manifest uses to pin one
+format per output path.
+
+Produces `{isa}_reference.md` / `.html` / `.pdf` - a human-readable
 architecture manual generated from the same manifests as the toolchain:
 
 - per-instruction pages: encoding diagram (bit positions from the
@@ -16,7 +20,7 @@ architecture manual generated from the same manifests as the toolchain:
 - CSR tables with field layouts and access modes,
 - operand-struct layouts.
 
-The prose comes from your `description` fields — `metadata.description` for
+The prose comes from your `description` fields - `metadata.description` for
 the one-liner, `spec.description` for the semantics line:
 
 ```yaml
@@ -36,5 +40,5 @@ generates one for the bundled RISC-V example in one command.
 
 - PDF output uses WeasyPrint (installed with the tool); complex/very large
   ISAs render noticeably slower as PDF than HTML.
-- The manual reflects what the manifests declare — behaviors are shown as
+- The manual reflects what the manifests declare - behaviors are shown as
   written, not decompiled into prose.

@@ -5,12 +5,21 @@ Python-syntax language. One definition drives all the generators: the QEMU
 simulator, the LLVM compiler's instruction selection, the SystemVerilog
 model, and the reference manual.
 
+```mermaid
+flowchart LR
+    B["behavior: text<br/><i>rd = rs1 + rs2</i>"] --> IR["parse to width-checked IR"]
+    IR --> Q["QEMU C / TCG helper"]
+    IR --> L["LLVM ISel pattern"]
+    IR --> S["SystemVerilog datapath"]
+    IR --> D["reference manual"]
+```
+
 ## Names
 
 | Name | Refers to |
 |---|---|
 | schema field names (`rd`, `rs1`, `imm`, …) | registers (for `register`-role fields) or values (immediates) |
-| `pc` | the program counter — assigning it makes the instruction a branch/jump |
+| `pc` | the program counter - assigning it makes the instruction a branch/jump |
 | CSR names (`mstatus`), with field access (`mstatus.mie`) | control/status registers |
 | any new name | a temporary, its width inferred from what you assign it |
 
@@ -37,7 +46,7 @@ Two rules with teeth:
 | `sext(x, n)` | sign-extend the low `n` bits of `x` to the destination's width |
 | `zext(x)` | zero-extend `x` to the destination's width |
 | `signed(x)` | reinterpret as signed (changes `>>` and comparisons) |
-| `mem8[a]` `mem16[a]` `mem32[a]` `mem64[a]` | memory access of that width — read on the right of `=`, write on the left |
+| `mem8[a]` `mem16[a]` `mem32[a]` `mem64[a]` | memory access of that width - read on the right of `=`, write on the left |
 | `range(n)` | loop bound, see control flow |
 | `SomeOperand(a, b)` | construct an [Operand](types.md) value |
 
@@ -50,7 +59,7 @@ behavior: "mem16[rs1 + imm] = rs2[0:16]"     # halfword store
 ```
 
 Address expressions can be `base + immediate`, `base + register`, or a bare
-register. The value width must match the access width — a 32-bit value into
+register. The value width must match the access width - a 32-bit value into
 `mem16[...]` is a generation error.
 
 ## Bit slices and concatenation
@@ -87,7 +96,7 @@ behavior: |
 ```
 
 `if`/`elif`/`else` and `for … in range(...)` only. No `while`, no function
-definitions, no recursion — anything else is a generation-time error naming
+definitions, no recursion - anything else is a generation-time error naming
 the instruction.
 
 ## Width discipline
@@ -132,7 +141,7 @@ behavior: |                                      # struct operand
 ## What the compiler sees
 
 The LLVM generator pattern-matches these shapes to build instruction
-selection automatically — that's the role-inference layer described in
+selection automatically - that's the role-inference layer described in
 [compiler roles & coverage](../compiler/roles-and-coverage.md). A behavior
 too unusual to match still simulates perfectly; the compiler lists it as
 custom-lowered in `COMPILER_COVERAGE.md` with the reason.
@@ -141,9 +150,9 @@ custom-lowered in `COMPILER_COVERAGE.md` with the reason.
 
 - No `while`, user functions, or recursion (see Control flow).
 - No trap/exception primitives, FP rounding-mode control, or atomic/ordered
-  memory operations — instructions needing those can't be expressed yet.
+  memory operations - instructions needing those can't be expressed yet.
 - Memory accesses are 8–64 bits per access (wider values: compose two
   accesses with concatenation).
 - Every unsupported construct is a loud generation error with the instruction
-  named — if generation succeeded, the semantics you wrote are the semantics
+  named - if generation succeeded, the semantics you wrote are the semantics
   you get, in every generator.
