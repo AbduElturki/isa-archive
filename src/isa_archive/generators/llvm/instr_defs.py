@@ -7,7 +7,8 @@ from typing import Optional
 from ...compiler.behavior import BehaviorIR
 from ...compiler.backends import LLVMDagBackend
 from ...compiler.backends.llvm_dag import DagPattern
-from ...compiler.utils import build_reg_maps, compute_fixed_fields
+from ...compiler.utils import (build_reg_maps, compute_fixed_fields, build_regfile_shapes,
+                               build_regfile_attrs)
 from ...models.enums import FieldRole
 from .encoding import _get_schema_combined_imm
 
@@ -70,6 +71,8 @@ def _build_instr_defs(isa_reg, ISA_upper: str,
                 var_widths=var_widths,
                 operands=isa_reg.operands,
                 csrs={},
+                regfile_shapes=build_regfile_shapes(isa_reg),
+                regfile_attrs=build_regfile_attrs(isa_reg),
             )
             dag_backend = LLVMDagBackend(
                 ir, xlen=isa_reg.xlen, reg_class_info=reg_class_info,

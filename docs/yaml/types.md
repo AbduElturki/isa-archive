@@ -1,6 +1,6 @@
-# Operand, Enum, Constant
+# Operand, Enum, Constant, ScalarType
 
-Three small kinds that keep the big ones readable.
+Small kinds that keep the big ones readable.
 
 ## Constant - a named number
 
@@ -67,6 +67,37 @@ Operands appear in three places:
 They also become real `struct`s in the generated C/Rust headers
 ([`-t c` / `-t rust`](../targets/intrinsics.md)), so software constructs the
 same values the hardware decodes.
+
+## ScalarType - a custom element type
+
+The built-in element types (`i8`…`i128`, `f16`/`bf16`/`f32`/`f64`/`f128`) cover
+integer and IEEE-float ISAs. A `kind: ScalarType` adds one the table doesn't
+carry - sub-byte ints, FP8 formats, `tf32`, … - so a [register file's](isa.md)
+`type:` can name it:
+
+```yaml
+apiVersion: isa-archive/v1
+kind: ScalarType
+metadata: { name: fp8_e4m3, description: "8-bit float, E4M3" }
+spec:
+  width: 8
+  arith_class: ieee_float   # "int" (default) or "ieee_float"
+  llvm_mvt: f8E4M3          # optional; default: the name (float) / i<width> (int)
+  c_type: null              # optional host C type; null = no native arithmetic
+```
+
+```yaml
+# then, in state.registers:
+- { name: qreg, width: 8, count: 16, type: fp8_e4m3 }
+```
+
+`arith_class` is `int` or `ieee_float` - the two classes with native lowering.
+A type with `c_type: null` **stores and moves** but has **no host arithmetic**:
+the QEMU backend rejects arithmetic on it (loudly, like the built-in `f16`),
+while the LLVM backend still uses its `llvm_mvt`. (Genuinely novel numerics -
+fixed-point, posit - need custom lowering and are out of scope.) The
+[`npu-probe`](../../examples/npu-probe/) example declares `fp8_e4m3` and a
+`qreg` file typed with it.
 
 ## All three together
 

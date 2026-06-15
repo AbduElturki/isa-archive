@@ -18,7 +18,7 @@ generated `qemu-system-pico32`.
 | You want to… | Go to |
 |---|---|
 | Try it in 5 minutes, no builds | [Quickstart](getting-started/quickstart.md) |
-| **Build your own ISA from scratch** | [**The pico32 tutorial**](tutorial/README.md) |
+| **Build your own ISA from scratch** | [**The pico32 tutorial**](../examples/tutorial/README.md) |
 | Look up a YAML field or kind | [Manifest reference](yaml/README.md) |
 | Understand the big picture first | [Concepts](getting-started/concepts.md) |
 | Build & run the QEMU simulator | [QEMU guide](qemu/README.md) |
@@ -41,7 +41,7 @@ generated `qemu-system-pico32`.
 
 **YAML manifest reference**
 - [The manifest format](yaml/README.md) - envelope, validation, multi-file projects
-- [ISA](yaml/isa.md) · [Schema](yaml/schemas.md) · [Instruction](yaml/instructions.md) · [Operand / Enum / Constant](yaml/types.md) · [uArch](yaml/uarch.md)
+- [ISA](yaml/isa.md) · [Register files](yaml/registers.md) · [Schema](yaml/schemas.md) · [Instruction](yaml/instructions.md) · [Operand / Enum / Constant](yaml/types.md) · [uArch](yaml/uarch.md)
 - [The behavior DSL](yaml/behavior.md) - how instruction semantics are written
 
 **Guides**

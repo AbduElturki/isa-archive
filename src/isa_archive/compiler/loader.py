@@ -6,8 +6,10 @@ from typing import List, Dict, Any, Optional, Union
 _loader_logger = logging.getLogger("isa_archive.loader")
 from ..models import ManifestBase, Operand, Schema, Instruction, ISA, uArch, Constant, EnumDef
 from ..models.project import Project
+from ..models.scalar_type_def import ScalarTypeDef
 from ..models.machine import MachineLayout
 from ..models.enums import FieldRole
+from ..models import scalar_types
 from .utils import build_reg_maps, instruction_pattern
 
 MAX_YAML_BYTES = 10 * 1024 * 1024  # 10 MB
@@ -23,10 +25,12 @@ class ISARegistry:
         self.instructions: Dict[str, Instruction] = {}
         self.constants: Dict[str, Constant] = {}
         self.enums: Dict[str, EnumDef] = {}
+        self.scalar_types: Dict[str, ScalarTypeDef] = {}
         self._source_files: Dict[str, str] = {}  # manifest name → source file path
         # Architectural State
         self.registers = manifest.spec.state.registers
         self.arch_csrs = manifest.spec.state.csrs
+        self.trap = manifest.spec.trap  # trap/exception wiring (or None)
         # Machine layout — from YAML if provided, else default values
         self.machine: MachineLayout = manifest.spec.machine or MachineLayout()
 
@@ -44,6 +48,9 @@ class ISARegistry:
             self.constants[name] = manifest
         elif isinstance(manifest, EnumDef):
             self.enums[name] = manifest
+        elif isinstance(manifest, ScalarTypeDef):
+            self.scalar_types[name] = manifest
+            scalar_types.register_from_manifest(manifest)  # visible to resolve() at once
 
     @property
     def display_name(self) -> str:
@@ -66,6 +73,7 @@ class ISARegistry:
         raise ValueError(f"Could not resolve: {value}")
 
     def validate(self):
+        self._validate_register_types()
         self._validate_constraint_syntax()
         self._validate_enum_refs()
         self._validate_csr_addresses()
@@ -73,6 +81,39 @@ class ISARegistry:
         instr_patterns = self._validate_instructions()
         self._validate_decoder_collisions(instr_patterns)
         self._warn_opcode_width_inconsistency()
+
+    def _validate_register_types(self):
+        """A register file's `type:` must name a known scalar type (built-in or a
+        declared `kind: ScalarType`) or an Operand struct — catches typos that
+        would otherwise silently fall back to opaque integer storage."""
+        for reg in self.registers:
+            t = getattr(reg, "type", None)
+            if t and scalar_types.resolve(t) is None and t not in self.operands:
+                raise ValueError(
+                    f"Register file '{reg.name}' has unknown type '{t}'; expected a "
+                    f"scalar type (e.g. i32/f32, or a declared kind: ScalarType) or an "
+                    f"Operand struct{self._src(self.name)}"
+                )
+            if reg.is_shaped:
+                if any(d < 1 for d in reg.shape):
+                    raise ValueError(
+                        f"Register file '{reg.name}' has a non-positive shape dimension "
+                        f"in {reg.shape}{self._src(self.name)}"
+                    )
+                st = scalar_types.resolve(t) if t else None
+                if st is None:
+                    raise ValueError(
+                        f"Register file '{reg.name}' is shaped {reg.shape} but its element "
+                        f"`type:` '{t}' is not a scalar type (shaped registers hold scalar "
+                        f"elements, not Operand structs){self._src(self.name)}"
+                    )
+                expected = st.width * reg.lane_count
+                if reg.width != expected:
+                    raise ValueError(
+                        f"Register file '{reg.name}' width {reg.width} ≠ element width "
+                        f"{st.width} × {reg.lane_count} lanes = {expected} (shape {reg.shape}, "
+                        f"element '{t}'){self._src(self.name)}"
+                    )
 
     def _validate_constraint_syntax(self):
         import ast as _ast
@@ -240,6 +281,8 @@ class ISARegistry:
 
             from .behavior import BehaviorIR
             from .backends import QemuCBackend
+            from .utils import (csr_map, build_csr_info, build_trap_info,
+                                 build_regfile_shapes, build_regfile_attrs)
             reg_map, var_widths = build_reg_maps(schema, self)
             try:
                 ir = BehaviorIR(
@@ -247,9 +290,21 @@ class ISARegistry:
                     register_map=reg_map,
                     var_widths=var_widths,
                     operands=self.operands,
-                    csrs={}
+                    csrs=csr_map(self),
+                    regfile_shapes=build_regfile_shapes(self),
+                    regfile_attrs=build_regfile_attrs(self),
                 )
-                QemuCBackend(ir).translate()
+                self._validate_sys_usage(instr, ir)
+                if ir.unknown_reg_attrs:
+                    rg, at = sorted(ir.unknown_reg_attrs)[0]
+                    raise ValueError(
+                        f"Instruction '{instr.metadata.name}' accesses '{rg}.{at}', but "
+                        f"register file '{reg_map.get(rg, rg)}' declares no attribute "
+                        f"'{at}'{self._src(instr.metadata.name)}")
+                QemuCBackend(ir).translate(csr_info=build_csr_info(self),
+                                           trap_info=build_trap_info(self),
+                                           regfile_shapes=build_regfile_shapes(self),
+                                           regfile_attrs=build_regfile_attrs(self))
                 for var in ir.used_vars:
                     if var in schema_fields: continue
                     if var in arch_state_names: continue
@@ -264,6 +319,27 @@ class ISARegistry:
                 raise ValueError(f"Instruction {instr.metadata.name} has invalid behavior syntax: {e}")
 
         return instr_patterns
+
+    def _validate_sys_usage(self, instr, ir) -> None:
+        """Check CSR / trap usage against the ISA's declared state and trap block."""
+        known_csrs = {c.name for c in self.arch_csrs}
+        for csr_name in ir.csrs_used:
+            if csr_name not in known_csrs:
+                raise ValueError(
+                    f"Instruction '{instr.metadata.name}' references undeclared CSR "
+                    f"'csr.{csr_name}'{self._src(instr.metadata.name)}"
+                )
+        if ir.uses_trap and self.trap is None:
+            raise ValueError(
+                f"Instruction '{instr.metadata.name}' uses trap()/trap_return() but the "
+                f"ISA declares no `trap:` block{self._src(instr.metadata.name)}"
+            )
+        for cause in ir.trap_causes_used:
+            if self.trap is None or cause not in self.trap.causes:
+                raise ValueError(
+                    f"Instruction '{instr.metadata.name}' uses trap('{cause}') but that "
+                    f"cause is not declared in spec.trap.causes{self._src(instr.metadata.name)}"
+                )
 
     def _validate_decoder_collisions(self, instr_patterns: dict):
         names = list(instr_patterns.keys())
@@ -323,6 +399,7 @@ def load_manifest(data: Dict[str, Any]) -> ManifestBase:
         "ISA": ISA, "uArch": uArch, "Operand": Operand,
         "Schema": Schema, "Instruction": Instruction,
         "Constant": Constant, "Enum": EnumDef, "Project": Project,
+        "ScalarType": ScalarTypeDef,
     }
     if kind not in mapping: raise ValueError(f"Unknown kind: {kind}")
     return mapping[kind](**data)
@@ -367,11 +444,12 @@ def load_isa(isa_path: str, global_registry: Optional[Registry] = None) -> ISARe
         spec = isa_manifest.spec
         for fld in ("xlen", "byte_order", "abi", "machine", "compiler",
                     "triple_arch", "elf_machine", "nop_encoding",
-                    "elf_relocations"):
+                    "elf_relocations", "trap"):
             if fld not in spec.model_fields_set:
                 setattr(spec, fld, getattr(base_spec, fld))
         isa_reg.xlen = spec.xlen
         isa_reg.machine = spec.machine if spec.machine is not None else isa_reg.machine
+        isa_reg.trap = spec.trap
     for pattern in isa_manifest.spec.includes:
         for matched_path in path.parent.glob(pattern):
             if matched_path.resolve() == path: continue

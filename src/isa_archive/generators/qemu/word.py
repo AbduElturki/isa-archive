@@ -3,16 +3,22 @@ from ...models.scalar_types import of_register
 
 
 def _float_scalar_types(isa_reg) -> list[dict]:
-    """Per-width float helper descriptors {w, c_type}, deduped by width and sorted.
+    """Per-width float helper descriptors {w, c_type, c_include}, deduped by width.
 
-    Drives the u2f/f2u bit-reinterpretation helpers. ``c_type`` comes from the
-    single scalar-type source of truth; a width with no native host C type
-    (f16/bf16) carries ``c_type=None`` and the template skips it (softfloat TODO)."""
-    by_width: dict[int, object] = {}
+    Drives the u2f/f2u bit-reinterpretation helpers. ``c_type`` comes from the single
+    scalar-type source of truth; a width with no host C type (f16/bf16) carries
+    ``c_type=None`` and the template skips it. A non-built-in ``c_type`` carries its
+    ``c_include`` so the helper compiles (the header *enables* the type in QEMU)."""
+    by_width: dict[int, tuple] = {}
     for r in isa_reg.registers:
         if r.is_float:
-            by_width.setdefault(r.width, of_register(r).c_type)
-    return [{"w": w, "c_type": c} for w, c in sorted(by_width.items())]
+            # Shaped float files operate per element → helper width is the element
+            # width, not the (total) register width.
+            w = r.element_width if getattr(r, "is_shaped", False) else r.width
+            st = of_register(r)
+            by_width.setdefault(w, (st.c_type, st.c_include))
+    return [{"w": w, "c_type": c, "c_include": inc}
+            for w, (c, inc) in sorted(by_width.items())]
 
 
 def _guest_word(isa_reg) -> dict:
@@ -73,6 +79,25 @@ def _regfile_storage(isa_reg) -> dict[str, dict]:
     storage: dict[str, dict] = {}
     for r in isa_reg.registers:
         w = r.width
+        if getattr(r, "is_shaped", False):
+            # Each register is an N-D array of the element scalar type. Stored as a
+            # multidimensional C array, helper-only (never a TCG global); behaviors
+            # touch it per element (env->name[reg][i][j]…).
+            st = of_register(r)
+            ew = st.width
+            if ew <= 64:
+                ebits = next(b for b in (8, 16, 32, 64) if ew <= b)
+                elem_ctype = f"uint{ebits}_t"
+            else:
+                ebits = 128
+                elem_ctype = "__uint128_t"
+            storage[r.name] = {
+                "width": w, "storage_bits": ebits, "c_type": elem_ctype,
+                "bytes": None, "tcg": None,
+                "mask": f"0x{(1 << ew) - 1:X}u" if ew < ebits else None,
+                "shaped": True, "shape": list(r.shape), "elem_ctype": elem_ctype,
+            }
+            continue
         if w == 128:
             # Native 128-bit storage on the host (__uint128_t exists on every
             # 64-bit host compiler QEMU supports). Helper-only: 128-bit values
@@ -96,4 +121,11 @@ def _regfile_storage(isa_reg) -> dict[str, dict]:
         storage[r.name] = {"width": w, "storage_bits": storage_bits,
                            "c_type": f"uint{storage_bits}_t", "bytes": None,
                            "tcg": tcg, "mask": mask}
+
+    # Per-register attribute arrays (separate scalar state, indexed by register).
+    for r in isa_reg.registers:
+        storage[r.name]["attrs"] = [
+            {"name": a.name,
+             "ctype": f"uint{next(b for b in (8, 16, 32, 64) if a.width <= b)}_t"}
+            for a in getattr(r, "attributes", None) or []]
     return storage

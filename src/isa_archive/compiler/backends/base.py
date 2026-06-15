@@ -32,6 +32,12 @@ class _BackendBase:
             op = BehaviorIR.OPERATORS.get(type(node.op))
             return f"({left} {op} {right})"
         if isinstance(node, ast.Attribute):
+            # `csr.*` and register `reg.attr` accesses are target-specific (state
+            # lives differently per backend), so hand them to the backend instead
+            # of the generic `.attr`.
+            if (BehaviorIR.csr_ref(node) is not None
+                    or self.ir.reg_attr_access(node) is not None):
+                return self._translate_complex(node, state_prefix)
             return f"{self._translate(node.value, state_prefix)}.{node.attr}"
         if isinstance(node, ast.Constant):
             return str(node.value)

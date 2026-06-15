@@ -9,12 +9,26 @@ def _class_value_types(reg) -> list[str]:
 
     The scalar element type (modern ``type:``, the legacy ``float`` flag, or a
     plain integer default) resolves through the single scalar-type source of truth
-    (``scalar_types.of_register``). The legacy ``value_types`` field remains an
-    explicit verbatim override of the LLVM value-type list.
+    (``scalar_types.of_register``). A 1-D shaped file (``shape: [N]``) is a vector
+    of its element type → ``vN<elem-mvt>`` (e.g. ``v4i32``). The legacy
+    ``value_types`` field remains an explicit verbatim override.
     """
     if not getattr(reg, "type", None) and reg.value_types:
         return list(reg.value_types)        # legacy explicit override
-    return [of_register(reg).llvm_mvt]
+    elem = of_register(reg).llvm_mvt
+    if getattr(reg, "is_shaped", False) and len(reg.shape) == 1:
+        return [f"v{reg.lane_count}{elem}"]   # 1-D vector value type
+    return [elem]
+
+
+def _is_vector_class(reg) -> bool:
+    """A 1-D shaped file of an int/IEEE-float element → an LLVM vector register class.
+    Multi-dimensional tiles and exotic-element files are not codegen classes."""
+    from ...models.scalar_types import ArithClass
+    if not getattr(reg, "is_shaped", False) or len(reg.shape) != 1:
+        return False
+    st = of_register(reg)
+    return st.arith_class in (ArithClass.INT, ArithClass.IEEE_FLOAT)
 
 
 def _resolve_reg_name(registers, alias: Optional[str]) -> Optional[str]:

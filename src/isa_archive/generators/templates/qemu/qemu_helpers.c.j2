@@ -9,6 +9,9 @@
 {%- if has_float %}
 #include <string.h>
 {%- endif %}
+{%- for inc in c_includes %}
+#include {{ inc }}
+{%- endfor %}
 {%- if isa_reg.operands %}
 #include "{{ isa_name }}_operands.h"
 {%- endif %}

@@ -20,7 +20,7 @@ flowchart LR
 |---|---|
 | schema field names (`rd`, `rs1`, `imm`, …) | registers (for `register`-role fields) or values (immediates) |
 | `pc` | the program counter - assigning it makes the instruction a branch/jump |
-| CSR names (`mstatus`), with field access (`mstatus.mie`) | control/status registers |
+| `csr.<name>` (and `csr.<name>.<field>`) | a control/status register declared in `state.csrs` - readable and writable |
 | any new name | a temporary, its width inferred from what you assign it |
 
 ## Operators
@@ -138,6 +138,33 @@ behavior: |                                      # struct operand
   rd = v.lo + v.hi
 ```
 
+## CSRs and traps
+
+Control/status registers declared in [`state.csrs`](isa.md) are read and written
+through the `csr` namespace; field access reads or read-modify-writes just those bits:
+
+```yaml
+behavior: "rd = csr.mcause"              # read a whole CSR
+behavior: "csr.mtvec = rs1"              # write a whole CSR
+behavior: "rd = zext(csr.mstatus.mie)"   # read one field (zext to the dest width)
+behavior: "csr.mstatus.mie = 0"          # write one field (the rest is preserved)
+```
+
+Two primitives express taking and returning from a trap. They use the ISA's
+[`trap:` block](isa.md) to know which CSRs hold the vector, saved PC, and cause:
+
+```yaml
+behavior: "trap(ecall_m)"     # save pc→epc, set cause, jump to the trap vector
+behavior: "trap_return()"     # restore pc from epc (an mret)
+```
+
+`trap(<cause>)` takes an integer or a name declared in `trap.causes`. These lower
+to the QEMU simulator; the LLVM/SystemVerilog targets treat the instruction as
+custom (CSR/system instructions aren't compiler-selected - you reach them via
+inline assembly or intrinsics). The bundled
+[`pico32-part4/sys`](../../examples/tutorial/pico32-part4/sys/) ISA wires up
+`ecall`, `mret`, and CSR access this way.
+
 ## What the compiler sees
 
 The LLVM generator pattern-matches these shapes to build instruction
@@ -149,8 +176,9 @@ custom-lowered in `COMPILER_COVERAGE.md` with the reason.
 ## Current boundaries
 
 - No `while`, user functions, or recursion (see Control flow).
-- No trap/exception primitives, FP rounding-mode control, or atomic/ordered
-  memory operations - instructions needing those can't be expressed yet.
+- No FP rounding-mode control or atomic/ordered memory operations - instructions
+  needing those can't be expressed yet. (Traps and CSR access *are* expressible -
+  see [CSRs and traps](#csrs-and-traps).)
 - Memory accesses are 8–64 bits per access (wider values: compose two
   accesses with concatenation).
 - Every unsupported construct is a loud generation error with the instruction

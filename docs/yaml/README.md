@@ -5,7 +5,7 @@ has the same envelope:
 
 ```yaml
 apiVersion: isa-archive/v1
-kind: ISA | Schema | Instruction | Operand | Enum | Constant | uArch
+kind: ISA | Schema | Instruction | Operand | Enum | Constant | ScalarType | uArch
 metadata:
   name: <unique name>
   description: <optional, shows up in generated manuals>
@@ -25,11 +25,13 @@ Multiple manifests can live in one file, separated by `---`.
 | `Operand` | A structured value type (named bit-fields) | [types.md](types.md) |
 | `Enum` | Named values for a field (`F3_BRANCH.BEQ`) | [types.md](types.md) |
 | `Constant` | A named number (`opcode: STORE`) | [types.md](types.md) |
+| `ScalarType` | A custom element type (sub-byte int, FP8, tf32, …) for a register `type:` | [types.md](types.md) |
 | `uArch` | A micro-architecture implementing the ISA (for `-t verilog`) | [uarch.md](uarch.md) |
 | `Project` | A build config: which targets to generate, and where (`isa-archive build`) | [project.md](project.md) |
 
-Instruction semantics are written in a small Python-like language - the
-[behavior DSL](behavior.md).
+Register files are part of the `ISA` root; see the dedicated
+[register-file reference](registers.md). Instruction semantics are written in a
+small Python-like language - the [behavior DSL](behavior.md).
 
 ## Validation is strict
 

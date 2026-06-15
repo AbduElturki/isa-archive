@@ -24,7 +24,7 @@ from .encoding import (_get_schema_combined_imm, _collect_imm_operands,
                        _encode_instr_as_nop)
 from .opcodes import (_find_sp_adjust_opcode, _find_lui_opcode,
                       _find_jal_opcode, _find_jalr_opcode)
-from .regclasses import _class_value_types, _resolve_reg_name
+from .regclasses import _class_value_types, _resolve_reg_name, _is_vector_class
 from .coverage import (_collect_compiler_roles, _build_coverage_report,
                        _setcc_branch_entries, _infer_const_strategy, _required_roles)
 
@@ -63,6 +63,15 @@ def _resolve_reg_classes(isa_reg, xlen: int, ISA: str) -> dict:
     def _is_codegen_class(reg) -> bool:
         if getattr(reg, "value_types", None) and not getattr(reg, "type", None):
             return True  # explicit legacy override — trust the author
+        # A ScalarType with no `llvm_mvt` has no LLVM value type → its files can't be
+        # register classes (simulator-only), the "LLVM optional" case.
+        from ...models.scalar_types import of_register
+        if of_register(reg).llvm_mvt is None:
+            return False
+        if getattr(reg, "is_shaped", False):
+            # Shaped files are codegen classes ONLY as 1-D vectors; multi-dim tiles
+            # are simulator-only even when their element is float.
+            return _is_vector_class(reg)
         return reg.is_float or reg.width == xlen
 
     codegen_regs = [r for r in isa_reg.registers if _is_codegen_class(r)]
@@ -77,7 +86,8 @@ def _resolve_reg_classes(isa_reg, xlen: int, ISA: str) -> dict:
 
     # The primary integer file (first codegen-eligible non-float file) provides
     # the GPR class, the ABI alias table, and sp/zero/ra resolution.
-    first_reg = next((r for r in codegen_regs if not r.is_float), None)
+    first_reg = next((r for r in codegen_regs
+                      if not r.is_float and not getattr(r, "is_shaped", False)), None)
     if first_reg is None and isa_reg.registers:
         raise ValueError(
             f"{ISA}: no register file is usable as an LLVM integer register "
@@ -99,7 +109,8 @@ def _resolve_reg_classes(isa_reg, xlen: int, ISA: str) -> dict:
         for reg in codegen_regs
     ]
 
-    int_codegen_regs = [r for r in codegen_regs if not r.is_float]
+    int_codegen_regs = [r for r in codegen_regs
+                        if not r.is_float and not getattr(r, "is_shaped", False)]
 
     def _alias_to_reg(alias: str) -> str:
         # Search every register file so float ABI aliases (e.g. fa0) resolve too.

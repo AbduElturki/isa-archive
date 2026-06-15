@@ -23,13 +23,17 @@ def _write_isa_files(env, isa_reg, out_path: pathlib.Path, clang_format: bool = 
     float_types = _float_scalar_types(isa_reg)
     has_mem = any("mem" in i.spec.behavior for i in isa_reg.instructions.values())
     has_sext = any("sext" in i.spec.behavior for i in isa_reg.instructions.values())
+    # Headers for non-built-in float c_types used in the u2f/f2u helpers.
+    from ...models.scalar_types import format_include
+    c_includes = sorted({format_include(ft["c_include"])
+                         for ft in float_types if ft["c_include"]})
     ctx = dict(instructions=isa_reg.instructions, isa_reg=isa_reg, isa_name=isa_reg.name,
                xlen=xlen, tcg_type=word["tcg_type"], c_int_type=word["c_int_type"],
                tcg_bits=word["tcg_bits"], xlen_mask=word["xlen_mask"],
                page_bits=word["page_bits"], addr_bits=word["addr_bits"],
                insn_bits=_w["insn_bits"], insn_bytes=_w["insn_bytes"],
                reg_storage=_regfile_storage(isa_reg),
-               float_scalar_types=float_types,
+               float_scalar_types=float_types, c_includes=c_includes,
                has_mem=has_mem, has_float=bool(float_types), has_sext=has_sext)
 
     render = make_renderer(env, ctx, clang_format=clang_format)

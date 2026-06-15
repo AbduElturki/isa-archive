@@ -97,10 +97,13 @@ QEMU itself only has 32- and 64-bit machine words, so the generator maps your
   byte-swapped loads/stores/fetch).
 - Float register files (`type: f32`/`f64`) compute with real host float
   arithmetic.
-- There is no trap architecture in the model: an unhandled guest exception
-  (e.g. executing an illegal instruction) halts the CPU and, with
-  `-d guest_errors`, logs `unhandled exception N at pc=0x… - CPU halted`.
-  A pending power-off still completes.
+- Software traps are modeled when the ISA declares a [`trap:` block](../yaml/isa.md):
+  `trap()` / `trap_return()` behaviors save the PC, set the cause, and jump through
+  the trap vector (see [the behavior DSL](../yaml/behavior.md#csrs-and-traps)). There
+  is no *hardware* interrupt delivery yet - an unhandled guest exception (e.g. an
+  illegal instruction not routed through `trap()`) halts the CPU and, with
+  `-d guest_errors`, logs `unhandled exception N at pc=0x… - CPU halted`. A pending
+  power-off still completes.
 
 ## Current boundaries
 

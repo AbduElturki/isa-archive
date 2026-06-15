@@ -16,15 +16,19 @@ Float used to be a special case scattered across the generators (a boolean
 collapses all of that into one table so "float" is just one row, and adding a new
 IEEE-float width (``f16``/``bf16``/``f128``) is a data change, not a code change.
 
-Honest ceiling: this only covers types LLVM has a native MVT for (integers and
-IEEE floats). Genuinely novel numerics (fixed-point, posit, 8-bit floats) have no
-MVT and need *custom lowering*, which is out of scope here — ``resolve`` returns
-``None`` for them so callers fail loudly rather than silently mis-lowering.
+Honest ceiling: the built-ins cover types LLVM has a native MVT for (integers and
+IEEE floats). Genuinely novel numerics (fixed-point, posit) still need *custom
+lowering*; ``resolve`` returns ``None`` for an unknown token so callers fail loudly.
 
-Future extension: a YAML-declared ``kind: ScalarType`` manifest could register
-additional rows at load time. That is deliberately not implemented yet — the
-built-in table below covers every int + IEEE-float ISA, and exotic types need
-custom lowering regardless.
+Extension point: a YAML-declared ``kind: ScalarType`` manifest registers additional
+rows at load time via :func:`register_from_manifest` (sub-byte ints, FP8 formats,
+bf16/tf32, …). ``resolve`` consults the registered rows first, then the built-ins.
+Each backend representation is independent and optional: ``llvm_mvt`` (omit → not an
+LLVM register-class element), ``c_type``/``c_include`` (QEMU C), ``cpp_type``/
+``cpp_include`` (cpp-isa C++, defaulting to the C names). An ``*_include`` is needed
+only when that backend's type isn't a built-in; providing the (type, include) pair
+*enables* the type for that backend. The registry is process-global, keyed by token
+(last definition wins); :func:`clear_registered` resets it (test isolation).
 """
 
 from __future__ import annotations
@@ -47,8 +51,22 @@ class ScalarType:
     token: str  # canonical key, e.g. "i32", "f32", "bf16"
     width: int  # bits
     arith_class: ArithClass
-    llvm_mvt: str  # MVT name without the "MVT::" prefix, e.g. "f32", "i32"
-    c_type: Optional[str]  # QEMU host C type, or None if no native host type
+    llvm_mvt: Optional[str]  # MVT name (e.g. "f32"); None → no LLVM value type
+    c_type: Optional[str]    # QEMU/C type name, or None
+    c_include: Optional[str] = None    # header for c_type (only if not a C built-in)
+    llvm_include: Optional[str] = None  # reserved (no LLVM emission site today)
+    cpp_type: Optional[str] = None      # cpp-isa C++ type; defaults to c_type
+    cpp_include: Optional[str] = None   # header for cpp_type; defaults to c_include
+
+    @property
+    def eff_cpp_type(self) -> Optional[str]:
+        """The C++ type for cpp-isa, falling back to the C type."""
+        return self.cpp_type or self.c_type
+
+    @property
+    def eff_cpp_include(self) -> Optional[str]:
+        """The header for the C++ type, falling back to the C include."""
+        return self.cpp_include or self.c_include
 
 
 def _int(width: int, c_type: Optional[str]) -> ScalarType:
@@ -80,10 +98,48 @@ _BUILTINS: dict[str, ScalarType] = {
 }
 
 
+# Types registered at load time from `kind: ScalarType` manifests. Consulted
+# before the built-ins so a manifest can also override a built-in token.
+_REGISTERED: dict[str, ScalarType] = {}
+
+
+def register(st: ScalarType) -> None:
+    """Register a scalar type so :func:`resolve` (and thus every backend) sees it."""
+    _REGISTERED[st.token] = st
+
+
+def clear_registered() -> None:
+    """Drop all load-time-registered scalar types (test isolation)."""
+    _REGISTERED.clear()
+
+
+def register_from_manifest(defn) -> ScalarType:
+    """Register a `kind: ScalarType` manifest (`ScalarTypeDef`) and return the row.
+
+    Defaults: ``llvm_mvt`` falls back to the token (float) or ``i{width}`` (int);
+    ``c_type`` defaults to None (no native host arithmetic)."""
+    token = defn.metadata.name
+    spec = defn.spec
+    arith = ArithClass.IEEE_FLOAT if spec.arith_class == "ieee_float" else ArithClass.INT
+    st = ScalarType(token=token, width=spec.width, arith_class=arith,
+                    llvm_mvt=spec.llvm_mvt,        # None if omitted → not LLVM-usable
+                    c_type=spec.c_type, c_include=spec.c_include,
+                    llvm_include=spec.llvm_include,
+                    cpp_type=spec.cpp_type, cpp_include=spec.cpp_include)
+    register(st)
+    return st
+
+
+def format_include(inc: str) -> str:
+    """Format an include directive argument: verbatim if it already carries its
+    delimiters (``<…>`` or ``"…"``), otherwise wrapped in angle brackets."""
+    return inc if inc[:1] in '<"' else f"<{inc}>"
+
+
 def resolve(token: str) -> Optional[ScalarType]:
-    """Return the ScalarType for an ``iN``/``fN``/``bf16`` token, or ``None`` if
-    the token is not a known native scalar type."""
-    return _BUILTINS.get(token)
+    """Return the ScalarType for a token (registered rows first, then built-ins),
+    or ``None`` if the token is not a known scalar type."""
+    return _REGISTERED.get(token) or _BUILTINS.get(token)
 
 
 def _opaque_int(width: int) -> ScalarType:

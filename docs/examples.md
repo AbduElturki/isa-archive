@@ -15,9 +15,9 @@ find the one closest to what you're building.
 
 ```mermaid
 flowchart LR
-    P1["Part 1<br/><i>4 instrs + UART</i><br/>runs on QEMU"] --> P2["Part 2<br/><i>branches, loads, jumps</i><br/>assembly loops"]
-    P2 --> P3["Part 3<br/><i>ABI + compiler roles</i><br/>clang compiles C"]
-    P3 --> P4["Part 4<br/><i>extends: layers</i><br/>intrinsics, manual, RTL"]
+    Part1["Part 1<br/><i>4 instrs + UART</i><br/>runs on QEMU"] --> Part2["Part 2<br/><i>branches, loads, jumps</i><br/>assembly loops"]
+    Part2 --> Part3["Part 3<br/><i>ABI + compiler roles</i><br/>clang compiles C"]
+    Part3 --> Part4["Part 4<br/><i>extends: layers</i><br/>intrinsics, manual, RTL"]
 ```
 
 The main path. The [tutorial](../examples/tutorial/README.md) grows pico32

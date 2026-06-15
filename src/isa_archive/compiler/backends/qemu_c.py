@@ -2,6 +2,7 @@ import ast
 from typing import Optional
 from ..behavior import BehaviorIR
 from .base import _BackendBase
+from ...models.scalar_types import ArithClass
 
 
 def _indent(code: str) -> str:
@@ -35,7 +36,19 @@ class QemuCBackend(_BackendBase):
                   helper_only_regfiles: Optional[set] = None,
                   regfile_write_masks: Optional[dict] = None,
                   pc_mask: Optional[str] = None,
-                  addr_mask: Optional[str] = None) -> str:
+                  addr_mask: Optional[str] = None,
+                  csr_info: Optional[dict] = None,
+                  trap_info: Optional[dict] = None,
+                  regfile_shapes: Optional[dict] = None,
+                  regfile_attrs: Optional[dict] = None) -> str:
+        # csr_info: {csr_name → {"width": int, "fields": {field → (start, width)}}}
+        # trap_info: {"vector_csr","epc_csr","cause_csr","status_csr","causes"} or None
+        self._csr_info = csr_info or {}
+        self._trap_info = trap_info
+        # Shaped (vector/tile) register files; element access uses the IR recognizer.
+        self._regfile_shapes = regfile_shapes or self.ir.regfile_shapes
+        # Per-register attributes ({file → {attr → width}}).
+        self._regfile_attrs = regfile_attrs or self.ir.regfile_attrs
         self._pc_write_tracking = pc_write_tracking
         self._zero_register_map = zero_register_map or {}
         # {register-file name → ScalarType} for floating-point files; arithmetic on
@@ -64,9 +77,130 @@ class QemuCBackend(_BackendBase):
         body = [self._translate(stmt, env_prefix) for stmt in self.ir.tree.body]
         return "\n".join(decls + body)
 
+    def _csr_field(self, csr_name: str, field: str) -> tuple[int, int, int]:
+        """(start, width, field-mask) for a CSR field, from csr_info."""
+        info = self._csr_info.get(csr_name)
+        if not info or field not in info["fields"]:
+            raise ValueError(f"CSR 'csr.{csr_name}' has no field '{field}'")
+        start, width = info["fields"][field]
+        return start, width, ((1 << width) - 1) << start
+
+    def _status_update(self, env_prefix: str, src: str, dst: str) -> list[str]:
+        """Copy status-CSR field `src` into `dst` then (for traps) clear `src`.
+        Used for the mie/mpie save-restore dance; no-op if no status CSR or the
+        fields aren't declared."""
+        ti = self._trap_info or {}
+        sc = ti.get("status_csr")
+        if not sc or sc not in self._csr_info:
+            return []
+        fields = self._csr_info[sc]["fields"]
+        if src not in fields or dst not in fields:
+            return []
+        state = f"{env_prefix}{sc}"
+        ss, sw, _ = self._csr_field(sc, src)
+        ds, dw, dmask = self._csr_field(sc, dst)
+        return [f"{state} = ({state} & ~{hex(dmask)}) | "
+                f"((({state} >> {ss}) & {hex((1 << sw) - 1)}) << {ds});"]
+
+    def _status_clear(self, env_prefix: str, field: str) -> list[str]:
+        """Clear a status-CSR field (e.g. mie on trap entry); no-op if absent."""
+        ti = self._trap_info or {}
+        sc = ti.get("status_csr")
+        if not sc or sc not in self._csr_info or field not in self._csr_info[sc]["fields"]:
+            return []
+        _, _, mask = self._csr_field(sc, field)
+        return [f"{env_prefix}{sc} = {env_prefix}{sc} & ~{hex(mask)};"]
+
+    def _emit_trap(self, node: ast.Call, env_prefix: str) -> str:
+        ti = self._trap_info
+        if not ti:
+            raise ValueError("trap() used but the ISA declares no `trap:` block")
+        arg = node.args[0] if node.args else None
+        if isinstance(arg, ast.Constant):
+            cause = arg.value
+        elif isinstance(arg, ast.Name) and arg.id in ti["causes"]:
+            cause = ti["causes"][arg.id]
+        else:
+            raise ValueError("trap() expects an integer or a declared cause name")
+        lines = [f"{env_prefix}{ti['epc_csr']} = {env_prefix}pc;",
+                 f"{env_prefix}{ti['cause_csr']} = {cause};"]
+        lines += self._status_update(env_prefix, "mie", "mpie")  # mpie = mie
+        lines += self._status_clear(env_prefix, "mie")           # mie = 0
+        pcv = f"{env_prefix}{ti['vector_csr']} & ~0x3"
+        if self._pc_mask:
+            pcv = f"({pcv}) & {self._pc_mask}"
+        lines.append(f"{env_prefix}pc = {pcv};")
+        return "\n".join(lines)
+
+    def _emit_trap_return(self, env_prefix: str) -> str:
+        ti = self._trap_info
+        if not ti:
+            raise ValueError("trap_return() used but the ISA declares no `trap:` block")
+        lines = self._status_update(env_prefix, "mpie", "mie")  # mie = mpie
+        pcv = f"{env_prefix}{ti['epc_csr']}"
+        if self._pc_mask:
+            pcv = f"({pcv}) & {self._pc_mask}"
+        lines.append(f"{env_prefix}pc = {pcv};")
+        return "\n".join(lines)
+
+    def _emit_subarray_copy(self, lhs_acc, rhs_node, env_prefix: str) -> str:
+        """Copy a partially-indexed sub-array (`td[i] = ts[i]` on a multi-dim file)
+        via nested loops over the remaining dimensions. Only register→register
+        sub-array moves are supported (partial indices can't be operated on)."""
+        lname, lfile, lelem, lshape, lidx = lhs_acc
+        remaining = lshape[len(lidx):]
+        rhs_acc = self.ir.reg_element_access(rhs_node)
+        if rhs_acc is None:
+            raise ValueError(
+                f"partially-indexed '{lname}' can only be assigned another sub-array "
+                f"of matching shape (got '{ast.unparse(rhs_node)}')")
+        rname, rfile, relem, rshape, ridx = rhs_acc
+        if rshape[len(ridx):] != remaining or relem.width != lelem.width:
+            raise ValueError(
+                f"sub-array shape/element mismatch copying into '{lname}' "
+                f"(remaining {remaining} vs {rshape[len(ridx):]})")
+        pv = [f"_p{k}" for k in range(len(remaining))]
+        lbase = f"{env_prefix}{lfile}[{lname}]" + "".join(
+            f"[{self._translate(ix, env_prefix)}]" for ix in lidx)
+        rbase = f"{env_prefix}{rfile}[{rname}]" + "".join(
+            f"[{self._translate(ix, env_prefix)}]" for ix in ridx)
+        body = (lbase + "".join(f"[{v}]" for v in pv) + " = "
+                + rbase + "".join(f"[{v}]" for v in pv) + ";")
+        for k in range(len(remaining) - 1, -1, -1):
+            body = (f"for (uint32_t {pv[k]} = 0; {pv[k]} < {remaining[k]}; {pv[k]}++) "
+                    f"{{\n{_indent(body)}\n}}")
+        return body
+
     def _translate_complex(self, node: ast.AST, state_prefix: Optional[str] = None) -> str:
         env_prefix = state_prefix or "env->"
         ir = self.ir
+
+        # Register attribute read: reg.attr → env->file_attr[reg]
+        attr = self.ir.reg_attr_access(node)
+        if attr is not None and not isinstance(getattr(node, "ctx", None), ast.Store):
+            regop, regfile, aname, _w = attr
+            return f"{env_prefix}{regfile}_{aname}[{regop}]"
+
+        # Shaped-register element read: vd[i] / vd[i][j] → env->file[vd][i][j]
+        acc = self.ir.reg_element_access(node)
+        if acc is not None and not isinstance(getattr(node, "ctx", None), ast.Store):
+            name, regfile, elem_st, shape, indices = acc
+            if len(indices) != len(shape):
+                raise ValueError(
+                    f"'{name}' is a shaped register {shape}; index all {len(shape)} "
+                    f"dimension(s) to reach an element")
+            idxs = "".join(f"[{self._translate(ix, env_prefix)}]" for ix in indices)
+            return f"{env_prefix}{regfile}[{name}]{idxs}"
+
+        # CSR read: csr.NAME → env->NAME ; csr.NAME.FIELD → masked extract
+        csr_r = BehaviorIR.csr_ref(node)
+        if csr_r is not None and not isinstance(getattr(node, "ctx", None), ast.Store):
+            csr_name, field = csr_r
+            state = f"{env_prefix}{csr_name}"
+            if field is None:
+                return state
+            start, width, _ = self._csr_field(csr_name, field)
+            return f"(({state} >> {start}) & {hex((1 << width) - 1)})"
 
         if isinstance(node, ast.If):
             prev_cw = self._cast_width
@@ -99,6 +233,54 @@ class QemuCBackend(_BackendBase):
 
         if isinstance(node, ast.Assign):
             target_var = node.targets[0]
+            # Shaped-register element write: vd[i] = v  →  env->file[vd][i] = (v) [& mask]
+            # Register attribute write: reg.attr = v → env->file_attr[reg] = (v) [& mask]
+            attr_w = self.ir.reg_attr_access(target_var)
+            if attr_w is not None:
+                regop, regfile, aname, awidth = attr_w
+                val = self._translate(node.value, env_prefix)
+                sb = next(b for b in (8, 16, 32, 64) if awidth <= b)
+                if awidth < sb:
+                    val = f"({val}) & {hex((1 << awidth) - 1)}"
+                return f"{env_prefix}{regfile}_{aname}[{regop}] = {val};"
+            acc_w = self.ir.reg_element_access(target_var)
+            if acc_w is not None:
+                name, regfile, elem_st, shape, indices = acc_w
+                # Partial index (vd[i] on a multi-dim file) → sub-array copy.
+                if len(indices) < len(shape):
+                    return self._emit_subarray_copy(acc_w, node.value, env_prefix)
+                idxs = "".join(f"[{self._translate(ix, env_prefix)}]" for ix in indices)
+                lhs = f"{env_prefix}{regfile}[{name}]{idxs}"
+                # Float-element arithmetic: operate in float space via u2f/f2u, like
+                # the whole-register float path. Needs a native host C type.
+                if elem_st.arith_class == ArithClass.IEEE_FLOAT and isinstance(node.value, ast.BinOp):
+                    if elem_st.c_type is None:
+                        raise ValueError(
+                            f"float-element arithmetic on '{name}' needs softfloat: no "
+                            f"native host C type for '{elem_st.token}'")
+                    w = elem_st.width
+                    op = BehaviorIR.OPERATORS.get(type(node.value.op))
+                    l = self._translate(node.value.left, env_prefix)
+                    r = self._translate(node.value.right, env_prefix)
+                    return f"{lhs} = f2u{w}(u2f{w}({l}) {op} u2f{w}({r}));"
+                val = self._translate(node.value, env_prefix)
+                mask = self._regfile_write_masks.get(regfile)
+                if mask:
+                    val = f"({val}) & {mask}"
+                return f"{lhs} = {val};"
+            # CSR write: csr.NAME = v  (mask to CSR width) ; csr.NAME.FIELD = v (RMW)
+            csr_w = BehaviorIR.csr_ref(target_var)
+            if csr_w is not None:
+                csr_name, field = csr_w
+                state = f"{env_prefix}{csr_name}"
+                val = self._translate(node.value, env_prefix)
+                if field is None:
+                    cw = self._csr_info.get(csr_name, {}).get("width")
+                    mask = f" & {hex((1 << cw) - 1)}" if cw else ""
+                    return f"{state} = ({val}){mask};"
+                start, width, fmask = self._csr_field(csr_name, field)
+                return (f"{state} = ({state} & ~{hex(fmask)}) | "
+                        f"((({val}) & {hex((1 << width) - 1)}) << {start});")
             if (isinstance(target_var, ast.Subscript)
                     and isinstance(target_var.value, ast.Name)
                     and target_var.value.id in BehaviorIR.MEM_KEYWORDS):
@@ -199,6 +381,10 @@ class QemuCBackend(_BackendBase):
 
         if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
             func_id = node.func.id
+            if func_id == "trap":
+                return self._emit_trap(node, env_prefix)
+            if func_id == "trap_return":
+                return self._emit_trap_return(env_prefix)
             if func_id in ("sext", "signed", "zext"):
                 # Extend to the width of the value context (assignment target /
                 # comparison operands), defaulting to the data width. Rounded up
@@ -227,6 +413,10 @@ class QemuCBackend(_BackendBase):
                 return f"{env_prefix}pc"
             if node.id in ir.register_map:
                 regfile = ir.register_map[node.id]
+                if regfile in self._regfile_shapes:
+                    raise ValueError(
+                        f"shaped register '{node.id}' must be indexed to an element "
+                        f"(e.g. {node.id}[i]); whole-register ops aren't supported")
                 if node.id in ir.write_vars or regfile in self._helper_only_regfiles:
                     return f"{env_prefix}{regfile}[{node.id}]"
                 return f"{node.id}_val"

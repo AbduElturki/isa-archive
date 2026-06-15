@@ -118,9 +118,143 @@ class LLVMDagBackend:
         if isinstance(op, ast.GtE):   return "setge"  if is_signed else "setuge"
         return None
 
+    def _try_vector_elementwise(self) -> Optional[DagPattern]:
+        """Recognize the canonical 1-D vector op
+        `for i in range(N): vd[i] = vs1[i] OP vs2[i]` over a single shaped register
+        file → a vector DAG `(set CLS:$vd, (OP CLS:$vs1, CLS:$vs2))`. Anything else
+        shaped stays custom (simulator-only)."""
+        ir = self.ir
+        body = ir.tree.body
+        if len(body) != 1 or not isinstance(body[0], ast.For):
+            return None
+        loop = body[0]
+        if not (isinstance(loop.iter, ast.Call) and isinstance(loop.iter.func, ast.Name)
+                and loop.iter.func.id == "range" and len(loop.body) == 1
+                and isinstance(loop.body[0], ast.Assign)
+                and isinstance(loop.target, ast.Name)):
+            return None
+        loopvar = loop.target.id
+        assign = loop.body[0]
+        if len(assign.targets) != 1 or not isinstance(assign.value, ast.BinOp):
+            return None
+        tgt = ir.reg_element_access(assign.targets[0])
+        lhs = ir.reg_element_access(assign.value.left)
+        rhs = ir.reg_element_access(assign.value.right)
+        if tgt is None or lhs is None or rhs is None:
+            return None
+        if len({tgt[1], lhs[1], rhs[1]}) != 1:        # all the same register file
+            return None
+        for _n, _f, _e, shape, indices in (tgt, lhs, rhs):
+            if len(shape) != 1 or len(indices) != 1:   # 1-D, single index
+                return None
+            if not (isinstance(indices[0], ast.Name) and indices[0].id == loopvar):
+                return None
+        # the loop must span exactly the lane count
+        args = loop.iter.args
+        n = args[-1].value if args and isinstance(args[-1], ast.Constant) else None
+        if n != tgt[3][0]:
+            return None
+        dagop = _ARITH_BINOP_TO_DAG.get((tgt[2].arith_class, type(assign.value.op)))
+        if dagop is None:
+            return None
+        cls = self._class_of(tgt[0])
+        dag = (f"(set {cls}:${tgt[0]}, "
+               f"({dagop} {cls}:${lhs[0]}, {cls}:${rhs[0]}))")
+        return DagPattern(category="vector", dag=dag, op=dagop,
+                          notes=[f"vector elementwise {dagop}"])
+
+    def _contig_base(self, addr: ast.AST, loopvar: str, esize: int) -> Optional[str]:
+        """If `addr` is `base + loopvar*esize` (or `base + loopvar` when esize==1)
+        with `base` a scalar register, return base's name — i.e. a contiguous,
+        unit-stride address over the loop. Else None."""
+        if not (isinstance(addr, ast.BinOp) and isinstance(addr.op, ast.Add)):
+            return None
+        base, off = addr.left, addr.right
+        if not (isinstance(base, ast.Name) and base.id in self.ir.register_map
+                and self.ir.register_map[base.id] not in self.ir.regfile_shapes):
+            return None
+        if esize == 1 and isinstance(off, ast.Name) and off.id == loopvar:
+            return base.id
+        if isinstance(off, ast.BinOp) and isinstance(off.op, ast.Mult):
+            names = {x.id for x in (off.left, off.right) if isinstance(x, ast.Name)}
+            consts = [x.value for x in (off.left, off.right) if isinstance(x, ast.Constant)]
+            if loopvar in names and esize in consts:
+                return base.id
+        return None
+
+    def _try_vector_mem(self) -> Optional[DagPattern]:
+        """Contiguous vector load/store over a 1-D vector file:
+          load:  `for i in range(N): vd[i]  = memW[base + i*esize]`
+          store: `for i in range(N): memW[base + i*esize] = vs[i]`
+        → `(set VEC:$vd, (load GPR:$base))` / `(store VEC:$vs, GPR:$base)`. These
+        ride on the LOAD/STORE legality the backend already emits for the vector MVT."""
+        ir = self.ir
+        body = ir.tree.body
+        if len(body) != 1 or not isinstance(body[0], ast.For):
+            return None
+        loop = body[0]
+        if not (isinstance(loop.iter, ast.Call) and isinstance(loop.iter.func, ast.Name)
+                and loop.iter.func.id == "range" and isinstance(loop.target, ast.Name)
+                and len(loop.body) == 1 and isinstance(loop.body[0], ast.Assign)
+                and len(loop.body[0].targets) == 1):
+            return None
+        loopvar = loop.target.id
+        args = loop.iter.args
+        n = args[-1].value if args and isinstance(args[-1], ast.Constant) else None
+        tgt, val = loop.body[0].targets[0], loop.body[0].value
+
+        def _vec_lane(acc):
+            name, _f, elem, shape, idx = acc
+            ok = (len(shape) == 1 and len(idx) == 1 and n == shape[0]
+                  and isinstance(idx[0], ast.Name) and idx[0].id == loopvar)
+            return (name, elem) if ok else (None, None)
+
+        def _is_mem(node):
+            return (isinstance(node, ast.Subscript) and isinstance(node.value, ast.Name)
+                    and node.value.id in ir.MEM_KEYWORDS)
+
+        # load: vd[i] = memW[base + i*esize]
+        lane = ir.reg_element_access(tgt)
+        if lane is not None and _is_mem(val):
+            name, elem = _vec_lane(lane)
+            if name and ir.MEM_KEYWORDS[val.value.id] == elem.width:
+                base = self._contig_base(val.slice, loopvar, elem.width // 8)
+                if base:
+                    return DagPattern(category="vector_load", notes=["contiguous vector load"],
+                                      dag=f"(set {self._class_of(name)}:${name}, "
+                                          f"(load {self._class_of(base)}:${base}))")
+        # store: memW[base + i*esize] = vs[i]
+        lane = ir.reg_element_access(val)
+        if _is_mem(tgt) and lane is not None:
+            name, elem = _vec_lane(lane)
+            if name and ir.MEM_KEYWORDS[tgt.value.id] == elem.width:
+                base = self._contig_base(tgt.slice, loopvar, elem.width // 8)
+                if base:
+                    return DagPattern(category="vector_store", notes=["contiguous vector store"],
+                                      dag=f"(store {self._class_of(name)}:${name}, "
+                                          f"{self._class_of(base)}:${base})")
+        return None
+
     def translate(self) -> DagPattern:
         """Return a DagPattern describing the SelectionDAG representation."""
         ir = self.ir
+
+        # Canonical 1-D vector elementwise op → a vector DAG pattern.
+        vec = self._try_vector_elementwise()
+        if vec is not None:
+            return vec
+
+        # Contiguous vector load / store → a vector load/store pattern.
+        vmem = self._try_vector_mem()
+        if vmem is not None:
+            return vmem
+
+        # CSR / trap / system instructions aren't compiler-selected (they're used
+        # via inline asm / intrinsics); lower them as custom so the coverage
+        # report lists them instead of attempting a pattern.
+        if ir.uses_sys:
+            return DagPattern(category="custom",
+                              notes=["CSR / system instruction — custom lowering"])
 
         # Unconditional jump to register+imm  (JALR pattern)
         if ir.modifies_pc and ir.is_unconditional_jump:

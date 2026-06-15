@@ -200,6 +200,7 @@ emits a **compiler-coverage report** and, with `--strict`, fails if a target pro
 | `Operand` | A structured value type with named bit-fields | [types.md](docs/yaml/types.md) |
 | `Enum` | Named values for a field (`F3_ALU.ADD_SUB`) | [types.md](docs/yaml/types.md) |
 | `Constant` | A named number (`opcode: OP`) | [types.md](docs/yaml/types.md) |
+| `ScalarType` | A custom element type (sub-byte int, FP8, tf32, …) a register `type:` can name | [types.md](docs/yaml/types.md) |
 | `uArch` | A micro-architecture: functional blocks with latency/count/handled exec-types | [uarch.md](docs/yaml/uarch.md) |
 | `Project` | A build config: which targets to generate, and where | [project.md](docs/yaml/project.md) |
 
@@ -245,7 +246,7 @@ spec:
   generate:
     - { target: qemu,          output: build/qemu }       # full QEMU source tree
     - { target: llvm-tablegen, output: build/llvm-td }    # just the *.td files
-    - { target: cpp-isa,       output: build/model }       # C++ description headers
+    - { target: cpp-isa,       output: build/model }      # C++ description headers
     - { target: qemu-machine,  output: build/board, on_exist: skip }
 ```
 

@@ -2,6 +2,9 @@
 #pragma once
 
 #include <cstdint>
+{%- for inc in elem_includes %}
+#include {{ inc }}
+{%- endfor %}
 
 namespace {{ ns }} {
 
@@ -26,7 +29,7 @@ inline const char *mnemonic(Op op) {
 enum class RegClass : uint8_t {
     none = 0,
 {%- for rc in reg_classes %}
-    {{ rc.name }},   // {{ rc.count }} x {{ rc.width }}-bit{{ " (float)" if rc.is_float else "" }}
+    {{ rc.name }},   // {{ rc.count }} x {% if rc.shape %}{{ rc.shape | join("x") }} {{ rc.element }}{% else %}{{ rc.width }}-bit{{ " (float)" if rc.is_float else "" }}{% endif %}
 {%- endfor %}
 };
 
@@ -38,6 +41,12 @@ inline const char *reg_class_name(RegClass rc) {
     default: return "none";
     }
 }
+{% if elem_types %}
+// Element storage type for register files backed by a custom (library) scalar type.
+{%- for et in elem_types %}
+using {{ et.name }}_elem_t = {{ et.ctype }};
+{%- endfor %}
+{% endif %}
 
 // Instruction categories, derived from each instruction's exec_type.
 enum class Category : uint8_t {

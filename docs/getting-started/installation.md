@@ -26,7 +26,7 @@ Validated examples/tutorial/pico32-part4/isa.yaml
 ## What you'll need later (optional now)
 
 Generating YAML into source code needs nothing beyond the above. Two paths in
-the [tutorial](../tutorial/README.md) additionally **build real toolchains**
+the [tutorial](../../examples/tutorial/README.md) additionally **build real toolchains**
 from the generated output, which needs the usual native build tools:
 
 | For | Tools | One-time cost |

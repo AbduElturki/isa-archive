@@ -9,6 +9,51 @@ if TYPE_CHECKING:
 from ..models.enums import FieldRole
 
 
+def csr_map(isa_reg: "ISARegistry") -> dict:
+    """{csr_name → ISACSR}, the form BehaviorIR expects for `csr.*` width inference."""
+    return {c.name: c for c in (getattr(isa_reg, "arch_csrs", None) or [])}
+
+
+def build_regfile_shapes(isa_reg: "ISARegistry") -> dict:
+    """{register-file name → (element ScalarType, shape list)} for shaped files only.
+    Lets BehaviorIR + the backends resolve element indexing `vd[i]` / `vd[i][j]`."""
+    from ..models.scalar_types import of_register
+    return {r.name: (of_register(r), list(r.shape))
+            for r in isa_reg.registers if getattr(r, "is_shaped", False)}
+
+
+def build_regfile_attrs(isa_reg: "ISARegistry") -> dict:
+    """{register-file name → {attr name → width}} for files with per-register
+    attributes. Lets BehaviorIR + the backends resolve `reg.attr` access."""
+    return {r.name: {a.name: a.width for a in r.attributes}
+            for r in isa_reg.registers if getattr(r, "attributes", None)}
+
+
+def build_csr_info(isa_reg: "ISARegistry") -> dict:
+    """{csr_name → {"width": int, "fields": {field → (start, width)}}} for the
+    QEMU C backend's CSR read/write lowering."""
+    info = {}
+    for c in (getattr(isa_reg, "arch_csrs", None) or []):
+        fields = {f.name: (f.start, f.end - f.start + 1) for f in (c.fields or [])}
+        info[c.name] = {"width": c.width, "fields": fields}
+    return info
+
+
+def build_trap_info(isa_reg: "ISARegistry"):
+    """Resolve the ISA's `trap:` block into the dict the QEMU C backend consumes,
+    or None if the ISA declares no trap wiring."""
+    trap = getattr(isa_reg, "trap", None)
+    if not trap:
+        return None
+    return {
+        "vector_csr": trap.vector_csr,
+        "epc_csr": trap.epc_csr,
+        "cause_csr": trap.cause_csr,
+        "status_csr": trap.status_csr,
+        "causes": dict(trap.causes),
+    }
+
+
 def compute_fixed_fields(instr: "Instruction", schema: "Schema",
                          isa_reg: "ISARegistry") -> list:
     """Resolve every fixed (OPCODE / CONSTANT / RESERVED) field of an instruction.

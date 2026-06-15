@@ -6,6 +6,10 @@ from .base import _BackendBase
 
 class VerilogBackend(_BackendBase):
     def translate(self) -> str:
+        # CSR / trap / attribute / shaped-register semantics aren't modeled in the
+        # combinational RTL skeleton yet; emit a placeholder rather than failing.
+        if self.ir.uses_structured:
+            return "// CSR / trap / vector / attribute semantics not modeled in the RTL skeleton yet"
         self._mem_reads: List[str] = []
         decls = []
         for name, (width, type_name) in self.ir.temporaries.items():

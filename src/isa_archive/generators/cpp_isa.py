@@ -125,13 +125,32 @@ def generate_cpp_isa(registry: Registry, output_dir: str, clang_format: bool = F
 
         reg_classes = [{"name": _ident(r.name), "raw": r.name, "width": r.width,
                         "count": r.count, "is_float": r.is_float,
-                        "ctype": (of_register(r).c_type or f"uint{r.width}_t")}
+                        "element": (r.type if r.is_shaped else None),
+                        "shape": (list(r.shape) if r.is_shaped else None),
+                        # element C++ type for shaped files (the total width has no C type)
+                        "ctype": (of_register(r).eff_cpp_type
+                                  or f"uint{r.element_width if r.is_shaped else r.width}_t")}
                        for r in isa_reg.registers]
+
+        # Register files whose element type is a custom (library) C++ type declare a
+        # `cpp_include` (defaulting to `c_include`). Surface that as a per-file element
+        # typedef plus the header to include. Built-in types add nothing.
+        from ..models.scalar_types import format_include
+        elem_includes: list[str] = []
+        elem_types: list[dict] = []
+        for r in isa_reg.registers:
+            st = of_register(r)
+            if st.eff_cpp_include and st.eff_cpp_type:
+                inc = format_include(st.eff_cpp_include)
+                if inc not in elem_includes:
+                    elem_includes.append(inc)
+                elem_types.append({"name": _ident(r.name), "ctype": st.eff_cpp_type})
 
         ctx = dict(isa_name=isa_name, ns=ns, guard=guard,
                    insn_bits=insn["insn_bits"], insn_bytes=insn["insn_bytes"],
                    instrs=instrs, decode_order=decode_order, categories=categories,
-                   reg_classes=reg_classes, has_uarch=bool(latencies))
+                   reg_classes=reg_classes, has_uarch=bool(latencies),
+                   elem_includes=elem_includes, elem_types=elem_types)
 
         out = root / ns
         out.mkdir(parents=True, exist_ok=True)

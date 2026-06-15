@@ -59,54 +59,19 @@ state:
       count: 32
       zero_register: 0      # optional: this index always reads 0
       canonical_prefix: x   # registers named x0..x31 (default: first letter)
-      type: i32             # element type (optional, see below)
-      aliases:              # ABI names (optional but important - see below)
-        zero: 0
-        ra: 1
-        sp: 2
-        a0: 10
+      type: i32             # element type (optional)
+      aliases: { zero: 0, ra: 1, sp: 2, a0: 10 }   # ABI names
 ```
 
-You can declare **several files** - integer + floating point, vector,
-predicate. Each is independent state with its own width and count.
+Declare **several files** - integer, floating point, vector, predicate. Beyond a
+plain scalar file, a register file can carry a custom element `type`, a `shape`
+(vectors and tiles), and per-register `attributes`. **`aliases` are the source of
+all CPU conventions** (`sp`/`ra`/`zero` and the argument/saved registers come *only*
+from here - nothing is guessed from positions).
 
-**`aliases` are the source of all CPU conventions.** `sp`, `ra`, `zero`, and
-the argument/saved-register names come *only* from here. Nothing is ever
-guessed from register positions: an ISA with no `sp` alias simply has no stack
-pointer anywhere in the generated code (correct for accelerator-style
-targets). If you want to compile C, declare at least `zero`, `ra`, and `sp` -
-the coverage report will tell you if they're missing.
-
-**`type`** sets the element type:
-- a scalar - `i32` (default behavior), `f32`/`f64` (an IEEE-float file: gets
-  float arithmetic, float load/store, and a float calling convention),
-- or an [Operand](types.md) name - the file holds structured values, treated
-  as opaque storage by the compiler.
-
-**Width matters per generator.** Any width simulates. For the *compiler*, a
-file becomes an allocatable register class only if it's float-typed or
-xlen-wide; other files (1-bit predicates, wide accumulators) stay
-architectural state, and instructions using them are simulator-only - see
-[the compiler guide](../compiler/README.md#register-files-and-the-compiler).
-In QEMU, files up to 64 bits (and exactly 128 bits) support direct arithmetic
-in behaviors; details in [the QEMU guide](../qemu/README.md#how-register-files-are-stored).
-
-Three real configurations to crib from:
-
-```yaml
-# examples/tutorial/pico32-part4 - one integer file with ABI aliases
-- { name: gpr, width: 32, count: 32, zero_register: 0, canonical_prefix: r,
-    aliases: { zero: 0, ra: 1, sp: 2, a0: 10, ... } }
-
-# examples/tutorial/pico32-part4/fp - integer + single-precision float
-- { name: gpr, width: 32, count: 32, zero_register: 0 }
-- { name: fpr, width: 32, count: 32, type: f32 }
-
-# examples/npu-probe - accelerator: 128-bit vectors + 1-bit predicates
-- { name: gpr,  width: 32,  count: 16 }
-- { name: vreg, width: 128, count: 16 }
-- { name: preg, width: 1,   count: 8 }
-```
+See **[registers.md](registers.md)** for the full reference - element types, shaped
+vector/tile registers, attributes, the per-generator width rules, and the
+**[planned work](registers.md#planned-work)** roadmap.
 
 ## `state.csrs` - control/status registers
 
@@ -124,7 +89,33 @@ state:
 
 `access` is `rw`, `ro`, or `wo`. CSRs become state in the QEMU model, fields
 and accessors in the generated C/Rust headers, CSR logic in the Verilog
-output, and tables in the manual.
+output, and tables in the manual. Behaviors read and write them through the
+`csr.<name>` namespace - see [the behavior DSL](behavior.md#csrs-and-traps).
+
+## `trap` - exception / return wiring
+
+Declaring a `trap:` block lets instruction behaviors use `trap()` and
+`trap_return()` (see [CSRs and traps](behavior.md#csrs-and-traps)). It names
+which CSRs - declared in `state.csrs` above - hold the trap vector, the saved
+PC, and the cause:
+
+```yaml
+spec:
+  trap:
+    vector_csr: mtvec     # PC jumps here on a trap (direct mode: base & ~0x3)
+    epc_csr:    mepc      # the trapping PC is saved here
+    cause_csr:  mcause    # receives the cause code
+    status_csr: mstatus   # optional; mie→mpie saved on trap, restored on return
+    causes:               # named cause codes for trap(<name>)
+      ecall_m: 11
+      illegal: 2
+```
+
+On `trap(cause)` the generated QEMU saves the PC to `epc_csr`, writes the cause to
+`cause_csr`, (if `status_csr` is given) shuffles `mie`/`mpie`, and jumps through
+`vector_csr`; `trap_return()` restores the PC from `epc_csr`. The
+[`pico32-part4/sys`](../../examples/tutorial/pico32-part4/sys/) ISA is a worked
+example (`ecall`, `mret`, CSR access).
 
 ## `abi` - the calling convention
 

@@ -2,7 +2,9 @@
 pre-flight validation that runs every instruction through the translators."""
 from ...compiler.behavior import BehaviorIR
 from ...compiler.backends import QemuCBackend, QemuTCGBackend
-from ...compiler.utils import build_reg_maps, instruction_pattern, constraint_to_c
+from ...compiler.utils import (build_reg_maps, instruction_pattern, constraint_to_c,
+                               csr_map, build_csr_info, build_trap_info, build_regfile_shapes,
+                               build_regfile_attrs)
 from ...models.enums import FieldRole
 from ...models.scalar_types import of_register
 from ..base import make_jinja_env
@@ -27,7 +29,9 @@ def _instr_qemu_info(instr, isa_reg, storage: dict[str, dict]) -> dict:
     reg_map, var_widths = build_reg_maps(schema, isa_reg)
 
     ir = BehaviorIR(instr.spec.behavior, register_map=reg_map, var_widths=var_widths,
-                    operands=isa_reg.operands, csrs={})
+                    operands=isa_reg.operands, csrs=csr_map(isa_reg),
+                    regfile_shapes=build_regfile_shapes(isa_reg),
+                    regfile_attrs=build_regfile_attrs(isa_reg))
 
     wide_files = sorted({reg_map[v] for v in ir.used_vars
                          if v in reg_map and storage[reg_map[v]]["storage_bits"] is None})
@@ -63,6 +67,10 @@ def _instr_qemu_info(instr, isa_reg, storage: dict[str, dict]) -> dict:
         regfile_write_masks=write_masks,
         pc_mask=word["xlen_mask"],
         addr_mask=word["xlen_mask"],
+        csr_info=build_csr_info(isa_reg),
+        trap_info=build_trap_info(isa_reg),
+        regfile_shapes=build_regfile_shapes(isa_reg),
+        regfile_attrs=build_regfile_attrs(isa_reg),
     )
     tcg_code = QemuTCGBackend(ir).translate(xlen=xlen, float_regs=float_regs,
                                             tcg_regfiles=tcg_files)
@@ -75,9 +83,11 @@ def _instr_qemu_info(instr, isa_reg, storage: dict[str, dict]) -> dict:
     helper_args = []
     tcg_args = []
     for v in sorted_vars:
-        if v in ir.write_vars or (v in reg_map and reg_map[v] in helper_only):
-            # destination register index, or a helper-only file's source index:
-            # the helper accesses env-> state itself.
+        if (v in ir.write_vars or v in ir.attr_regs
+                or (v in reg_map and reg_map[v] in helper_only)):
+            # destination register index, a helper-only file's source index, or a
+            # register whose attribute is accessed: the helper gets the index and
+            # reaches env-> state itself.
             helper_args.append({"name": v, "type": c_int_type})
             tcg_args.append({"tcg": f"tcg_constant_{tcg_suffix}(a->{v})", "name": v})
         elif v in reg_map:
