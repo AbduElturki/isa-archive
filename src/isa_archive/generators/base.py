@@ -95,3 +95,13 @@ CLANG_FORMAT_LLVM = """\
 # Shipped by ISA-Archive so this backend formats to LLVM house style.
 BasedOnStyle: LLVM
 """
+
+
+def make_renderer(env, ctx: dict, *, clang_format: bool = False):
+    """Return a ``render(template_name, dest)`` callable that renders a Jinja
+    template with ``ctx`` and writes it through ``write_generated``. Replaces the
+    identical render-to closure each generator used to define."""
+    def render(template_name: str, dest) -> None:
+        content = env.get_template(template_name).render(**ctx)
+        write_generated(dest, content, clang_format=clang_format)
+    return render

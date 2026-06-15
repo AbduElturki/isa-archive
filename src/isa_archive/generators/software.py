@@ -3,7 +3,7 @@ from enum import StrEnum
 from typing import Optional
 
 from ..compiler.loader import Registry
-from ..compiler.utils import constraint_to_c
+from ..compiler.utils import constraint_to_c, isa_ident
 from .base import make_jinja_env, prepare_output_dir, write_generated
 from .llvm import _build_instr_defs
 
@@ -215,7 +215,7 @@ def generate_software(registry: Registry, output_dir: str, lang: SoftwareLang,
     template_csr = env.get_template(f"sw/csrs.{extension}.j2")
 
     for isa_reg in registry.isas.values():
-        ISA_upper = isa_reg.name.upper().replace("-", "_")
+        ISA_upper = isa_ident(isa_reg.name)
         instr_defs = dict(_build_instr_defs(isa_reg, ISA_upper))
 
         rendered = []

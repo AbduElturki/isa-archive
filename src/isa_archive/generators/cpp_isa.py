@@ -5,22 +5,15 @@ not an executing simulator.
 """
 import logging
 import pathlib
-import re
 
 from ..compiler.loader import Registry
-from ..compiler.utils import compute_insn_width
+from ..compiler.utils import compute_insn_width, compute_fixed_fields, sanitize_ident as _ident
 from ..models.enums import FieldRole
 from ..models.scalar_types import of_register
-from .base import make_jinja_env, prepare_output_dir, write_generated, CLANG_FORMAT_LLVM
+from .base import make_jinja_env, prepare_output_dir, write_generated, make_renderer, CLANG_FORMAT_LLVM
 from .llvm import _get_schema_combined_imm
 
 logger = logging.getLogger("isa_archive.generators")
-
-
-def _ident(name: str) -> str:
-    """Sanitize an arbitrary name into a valid C++ identifier."""
-    s = re.sub(r"[^A-Za-z0-9_]", "_", name)
-    return "_" + s if s and s[0].isdigit() else s
 
 
 def _uarch_latencies(registry: Registry, isa_name: str) -> dict[str, int]:
@@ -43,22 +36,14 @@ def _instr_info(instr, isa_reg, latencies: dict[str, int]) -> dict:
 
     mask = 0
     match = 0
+    for f, val in compute_fixed_fields(instr, schema, isa_reg):
+        field_mask = ((1 << f.width) - 1) << f.start
+        mask |= field_mask
+        match |= (val << f.start) & field_mask
+
     operands: list[dict] = []
     for f in schema.spec.fields:
-        if f.role in (FieldRole.OPCODE, FieldRole.CONSTANT, FieldRole.RESERVED):
-            field_mask = ((1 << f.width) - 1) << f.start
-            if f.role == FieldRole.RESERVED:
-                val = 0
-            elif f.role == FieldRole.OPCODE:
-                val = isa_reg._resolve_value(instr.spec.opcode)
-            else:  # CONSTANT
-                cv = instr.spec.constants.get(f.name)
-                if cv is None:
-                    continue  # unconstrained constant field — not part of the match
-                val = isa_reg._resolve_value(cv)
-            mask |= field_mask
-            match |= (val << f.start) & field_mask
-        elif f.role == FieldRole.REGISTER:
+        if f.role == FieldRole.REGISTER:
             operands.append({"name": f.name, "kind": "Reg", "start": f.start,
                              "width": f.width, "signed": False,
                              "rc": f.type if f.type in reg_classes else "none"})
@@ -151,15 +136,12 @@ def generate_cpp_isa(registry: Registry, output_dir: str, clang_format: bool = F
         out = root / ns
         out.mkdir(parents=True, exist_ok=True)
 
-        def render(tpl: str, name: str):
-            content = env.get_template(f"cpp_isa/{tpl}").render(**ctx)
-            write_generated(out / name, content, clang_format=clang_format)
-
-        render("enums.h.j2", f"{ns}_enums.h")
-        render("info.h.j2", f"{ns}_info.h")
-        render("decode.h.j2", f"{ns}_decode.h")
-        render("model.h.j2", f"{ns}_model.h")
-        render("example_main.cpp.j2", "example_main.cpp")
-        render("INTEGRATE.md.j2", "INTEGRATE.md")
+        render = make_renderer(env, ctx, clang_format=clang_format)
+        render("cpp_isa/enums.h.j2", out / f"{ns}_enums.h")
+        render("cpp_isa/info.h.j2", out / f"{ns}_info.h")
+        render("cpp_isa/decode.h.j2", out / f"{ns}_decode.h")
+        render("cpp_isa/model.h.j2", out / f"{ns}_model.h")
+        render("cpp_isa/example_main.cpp.j2", out / "example_main.cpp")
+        render("cpp_isa/INTEGRATE.md.j2", out / "INTEGRATE.md")
 
     logger.info(f"Generated C++ ISA headers in {output_dir}")

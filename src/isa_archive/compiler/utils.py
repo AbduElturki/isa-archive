@@ -1,4 +1,5 @@
 import ast as _ast
+import re as _re
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -6,6 +7,49 @@ if TYPE_CHECKING:
     from ..models import Schema, Instruction
 
 from ..models.enums import FieldRole
+
+
+def compute_fixed_fields(instr: "Instruction", schema: "Schema",
+                         isa_reg: "ISARegistry") -> list:
+    """Resolve every fixed (OPCODE / CONSTANT / RESERVED) field of an instruction.
+
+    Returns ``[(SchemaField, value:int), …]`` — RESERVED is 0, OPCODE comes from
+    ``instr.spec.opcode``, CONSTANT from ``instr.spec.constants`` — using the
+    registry's value resolver (which handles named constants and enum members).
+    Fields whose value can't be resolved (or an unconstrained constant) are
+    omitted. The single source of truth for the LLVM and C++ backends, which
+    each format these differently (binary-string fixed fields vs mask/match).
+    """
+    out = []
+    for f in schema.spec.fields:
+        if f.role == FieldRole.RESERVED:
+            out.append((f, 0))
+        elif f.role == FieldRole.OPCODE:
+            try:
+                out.append((f, isa_reg._resolve_value(instr.spec.opcode)))
+            except Exception:
+                pass
+        elif f.role == FieldRole.CONSTANT:
+            cv = instr.spec.constants.get(f.name)
+            if cv is not None:
+                try:
+                    out.append((f, isa_reg._resolve_value(cv)))
+                except Exception:
+                    pass
+    return out
+
+
+def sanitize_ident(name: str) -> str:
+    """Turn an arbitrary name into a valid C/C++/Rust identifier."""
+    s = _re.sub(r"[^A-Za-z0-9_]", "_", name)
+    return "_" + s if s and s[0].isdigit() else s
+
+
+def isa_ident(name: str, upper: bool = True) -> str:
+    """Normalize an ISA name for use as a C++ namespace / LLVM target prefix:
+    hyphens and slashes become underscores (optionally upper-cased)."""
+    s = name.upper() if upper else name
+    return s.replace("-", "_").replace("/", "_")
 
 
 def compute_insn_width(isa_reg: "ISARegistry", name: str, max_bits: int = 512,
