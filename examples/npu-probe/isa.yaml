@@ -26,3 +26,43 @@ spec:
       - name: preg          # 1-bit predicates: helper-only, masked writes
         width: 1
         count: 8
+      - name: qreg          # fp8 scalar file — element type from a kind: ScalarType
+        width: 8
+        count: 16
+        type: fp8_e4m3
+      - name: vec           # 1-D vector: 4 x i32 lanes (128-bit) → an LLVM vector class
+        width: 128
+        count: 16
+        type: i32
+        shape: [4]
+      - name: tile          # 2-D tile: 8x8 fp8 elements (512-bit) → simulator-only
+        width: 512
+        count: 8
+        type: fp8_e4m3
+        shape: [8, 8]
+        attributes:         # per-register metadata carried alongside the data
+          - { name: layout, width: 3, description: "data layout code" }
+          - { name: valid,  width: 1, description: "1 = tile holds live data" }
+      - name: fvec          # 1-D float vector: 4 x f32 (128-bit) → v4f32 + float arith
+        width: 128
+        count: 16
+        type: f32
+        shape: [4]
+---
+# A YAML-declared element type the built-in int/IEEE-float table doesn't carry.
+# `qreg` above is typed with it; resolve() (and every backend) sees it at load.
+apiVersion: isa-archive/v1
+kind: ScalarType
+metadata:
+  name: fp8_e4m3
+  description: 8-bit float, 4-bit exponent / 3-bit mantissa (E4M3)
+spec:
+  width: 8
+  arith_class: ieee_float
+  # Each backend's type + header is independent and optional; the include is only
+  # needed because fp8e4m3_t isn't a language built-in. Providing it lets QEMU (C) and
+  # cpp-isa (C++) #include the header and use the type. (cpp_type/cpp_include default
+  # to the c_* values.)
+  llvm_mvt: f8E4M3           # LLVM value type for the register class
+  c_type: fp8e4m3_t          # QEMU/C type (used in the generated u2f/f2u float helpers)
+  c_include: "npu_fp8.h"     # header providing fp8e4m3_t

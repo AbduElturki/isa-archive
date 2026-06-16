@@ -1,9 +1,10 @@
-# pico32sys — control/status registers
+# pico32sys — control/status registers + traps
 
 An extension layer (`extends: ../isa.yaml`) that declares pico32's
-**control/status registers** — the machine's counters and trap state. Because
-this layer declares only `state.csrs` and no register file of its own, it
-inherits pico32's `gpr` file, ABI, instructions, triple and machine unchanged.
+**control/status registers** and the **system instructions that use them** —
+taking a trap, returning from one, and reading/writing CSRs. Because this layer
+adds no register file of its own, it inherits pico32's `gpr` file, ABI, triple
+and machine unchanged, and *adds* to its instruction set.
 
 ## What it adds
 
@@ -18,24 +19,36 @@ Six CSRs, each with its bit-field layout and per-field access mode:
 | `mepc`    | 0x341 | exception program counter |
 | `mcause`  | 0x342 | trap cause (`code`, `interrupt`) |
 
-These flow, with their fields and `ro`/`rw` access modes, into:
+These flow, with their fields and `ro`/`rw` access modes, into the **QEMU
+`CPUArchState`**, the **reference manual**, the **SystemVerilog**, and the
+C/Rust CSR headers.
 
-- the **QEMU `CPUArchState`** (`grep csr build/sys-qemu/pico32sys_arch.h`),
-- the **reference manual** (`-t docs` renders a per-CSR field table),
-- the **SystemVerilog** and the C/Rust CSR headers.
+A `trap:` block names which CSRs are the vector / saved-PC / cause, and five
+instructions (opcode `SYSTEM`, 0x73) make the state usable:
+
+| Instruction | Behavior | Does |
+|---|---|---|
+| `ECALL`      | `trap(ecall_m)`              | save pc→`mepc`, cause→`mcause`, jump to `mtvec` |
+| `MRET`       | `trap_return()`              | restore pc from `mepc` |
+| `CSRW_TVEC`  | `rd = csr.mtvec; csr.mtvec = rs1` | install a trap vector |
+| `CSRR_CAUSE` | `rd = csr.mcause`            | read the trap cause |
+| `CSRR_MIE`   | `rd = zext(csr.mstatus.mie)` | read one CSR field |
+
+The QEMU helpers contain the real trap sequence — inspect them with:
 
 ## Try it
 
 ```sh
 uv run isa-archive generate -i isa.yaml -t qemu-isa -o build/sys-qemu
+grep -A6 'HELPER(ecall)' build/sys-qemu/pico32sys_helpers.c
 uv run isa-archive generate -i isa.yaml -t docs     -o build/sys-docs
 ```
 
 ## Current boundaries
 
-- This layer *declares* the CSRs (architectural state); it does not add CSR
-  read/write instructions. The QEMU C backend does not yet emulate
-  CSR-accessing behaviors (`rd = mstatus`), so shipping `CSRRW`/`CSRRS` here
-  would generate helpers with wrong semantics. Declaring the registers — which
-  every backend consumes correctly — is the honest showcase until CSR behavior
-  lands in the QEMU/TCG backend.
+- Traps are *software* traps (taken via `trap()` in a behavior); there is no
+  hardware interrupt delivery yet, and `mtvec` is used in direct mode.
+- CSR access is to a CSR fixed per instruction; a single `csrrw` that selects
+  its CSR from a runtime immediate isn't modeled yet.
+- `ECALL`/`MRET`/CSR instructions are simulator-side (custom-lowered in the LLVM
+  backend) — you reach them from C via inline assembly, not codegen.

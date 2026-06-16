@@ -36,3 +36,65 @@ spec:
     - {name: rs1,    start: 11, width: 4,  role: register, type: gpr}
     - {name: rs2,    start: 15, width: 4,  role: register, type: gpr}
     - {name: pad,    start: 19, width: 45, role: reserved}
+
+---
+kind: Schema
+metadata:
+  name: QType
+spec:
+  length: 64
+  fields:
+    - {name: opcode, start: 0,  width: 8,  role: opcode}
+    - {name: qd,     start: 8,  width: 4,  role: register, type: qreg}
+    - {name: qs1,    start: 12, width: 4,  role: register, type: qreg}
+    - {name: pad,    start: 16, width: 48, role: reserved}
+
+---
+kind: Schema
+metadata:
+  name: VecType
+spec:
+  length: 64
+  fields:
+    - {name: opcode, start: 0,  width: 8,  role: opcode}
+    - {name: vd,     start: 8,  width: 4,  role: register, type: vec}
+    - {name: vs1,    start: 12, width: 4,  role: register, type: vec}
+    - {name: vs2,    start: 16, width: 4,  role: register, type: vec}
+    - {name: pad,    start: 20, width: 44, role: reserved}
+
+---
+kind: Schema
+metadata:
+  name: TileType
+spec:
+  length: 64
+  fields:
+    - {name: opcode, start: 0,  width: 8,  role: opcode}
+    - {name: td,     start: 8,  width: 3,  role: register, type: tile}
+    - {name: ts,     start: 11, width: 3,  role: register, type: tile}
+    - {name: pad,    start: 14, width: 50, role: reserved}
+
+---
+kind: Schema
+metadata:
+  name: FVType
+spec:
+  length: 64
+  fields:
+    - {name: opcode, start: 0,  width: 8,  role: opcode}
+    - {name: fd,     start: 8,  width: 4,  role: register, type: fvec}
+    - {name: fs1,    start: 12, width: 4,  role: register, type: fvec}
+    - {name: fs2,    start: 16, width: 4,  role: register, type: fvec}
+    - {name: pad,    start: 20, width: 44, role: reserved}
+
+---
+kind: Schema
+metadata:
+  name: VMemType
+spec:
+  length: 64
+  fields:
+    - {name: opcode, start: 0,  width: 8,  role: opcode}
+    - {name: vr,     start: 8,  width: 4,  role: register, type: vec}
+    - {name: rs1,    start: 12, width: 4,  role: register, type: gpr}
+    - {name: pad,    start: 16, width: 48, role: reserved}

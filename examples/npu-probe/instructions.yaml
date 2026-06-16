@@ -39,3 +39,106 @@ spec:
         pd = 1
     else:
         pd = 0
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: QMOV
+spec:
+  schema: QType
+  opcode: 0x30
+  description: "Copy an fp8 (E4M3) register — exercises a ScalarType element type"
+  behavior: "qd = qs1"
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: VLANEADD
+spec:
+  schema: VecType
+  opcode: 0x40
+  description: Element-wise vector add (4 x i32) — the canonical vector pattern
+  behavior: |
+    for i in range(4):
+        vd[i] = vs1[i] + vs2[i]
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: TMOV
+spec:
+  schema: TileType
+  opcode: 0x41
+  description: Copy an 8x8 fp8 tile element-by-element — a 2-D shaped register
+  behavior: |
+    for i in range(8):
+        for j in range(8):
+            td[i][j] = ts[i][j]
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: VFADD
+spec:
+  schema: FVType
+  opcode: 0x42
+  description: Element-wise float vector add (4 x f32) — float-element arithmetic
+  behavior: |
+    for i in range(4):
+        fd[i] = fs1[i] + fs2[i]
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: TROWMOV
+spec:
+  schema: TileType
+  opcode: 0x43
+  description: Copy a tile row-by-row — partial (sub-array) indexing of a 2-D register
+  behavior: |
+    for i in range(8):
+        td[i] = ts[i]
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: TSETVALID
+spec:
+  schema: TileType
+  opcode: 0x44
+  description: Mark a tile valid — writes a per-register attribute
+  behavior: "td.valid = 1"
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: TCOPYLAYOUT
+spec:
+  schema: TileType
+  opcode: 0x45
+  description: Copy a tile's layout attribute — reads and writes register metadata
+  behavior: "td.layout = ts.layout"
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: VLOAD
+spec:
+  schema: VMemType
+  opcode: 0x46
+  description: Contiguous vector load (4 x i32) — lowers to a vector load pattern
+  behavior: |
+    for i in range(4):
+        vr[i] = mem32[rs1 + i * 4]
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata:
+  name: VSTORE
+spec:
+  schema: VMemType
+  opcode: 0x47
+  description: Contiguous vector store (4 x i32) — lowers to a vector store pattern
+  behavior: |
+    for i in range(4):
+        mem32[rs1 + i * 4] = vr[i]

@@ -75,15 +75,24 @@ integer and IEEE-float ISAs. A `kind: ScalarType` adds one the table doesn't
 carry - sub-byte ints, FP8 formats, `tf32`, … - so a [register file's](isa.md)
 `type:` can name it:
 
+Each backend speaks a different language, so the type name (and the **header** that
+provides it, when it isn't a built-in) are declared **per backend**, each part
+optional. Providing a backend's `(type, include)` *enables* the type there.
+
 ```yaml
 apiVersion: isa-archive/v1
 kind: ScalarType
 metadata: { name: fp8_e4m3, description: "8-bit float, E4M3" }
 spec:
   width: 8
-  arith_class: ieee_float   # "int" (default) or "ieee_float"
-  llvm_mvt: f8E4M3          # optional; default: the name (float) / i<width> (int)
-  c_type: null              # optional host C type; null = no native arithmetic
+  arith_class: ieee_float    # "int" (default) or "ieee_float"
+
+  llvm_mvt: f8E4M3           # LLVM value type. OMIT → files using this type are
+                            #   simulator-only (not an LLVM register class).
+  c_type: fp8_e4m3_t         # QEMU/C type (used in the u2f/f2u float helpers).
+  c_include: "<fp8.h>"       # header for c_type; only needed if it isn't a C built-in.
+  cpp_type: fp8_e4m3_t       # cpp-isa C++ type   (defaults to c_type)
+  cpp_include: "<fp8.h>"     # header for cpp_type (defaults to c_include)
 ```
 
 ```yaml
@@ -91,13 +100,23 @@ spec:
 - { name: qreg, width: 8, count: 16, type: fp8_e4m3 }
 ```
 
-`arith_class` is `int` or `ieee_float` - the two classes with native lowering.
-A type with `c_type: null` **stores and moves** but has **no host arithmetic**:
-the QEMU backend rejects arithmetic on it (loudly, like the built-in `f16`),
-while the LLVM backend still uses its `llvm_mvt`. (Genuinely novel numerics -
-fixed-point, posit - need custom lowering and are out of scope.) The
-[`npu-probe`](../../examples/npu-probe/) example declares `fp8_e4m3` and a
-`qreg` file typed with it.
+Every representation is **optional** - a type declares only the backends it supports:
+
+- **`llvm_mvt`** - omit and the type has no LLVM value type, so register files using it
+  stay simulator-only (the symmetric counterpart of an absent `c_type`). LLVM uses
+  built-in MVTs and emits no header, so there is no LLVM include.
+- **`c_type` / `c_include`** - the C type QEMU computes with and its header. With a
+  `c_type`, QEMU arithmetic on the type is enabled and the header is `#include`d in the
+  generated helpers; with `c_type: null` the type **stores and moves** but has no host
+  arithmetic (like the built-in `f16`).
+- **`cpp_type` / `cpp_include`** - the C++ type for the cpp-isa headers and its header,
+  each defaulting to the C equivalent. cpp-isa emits the `#include` plus a
+  `using <file>_elem_t = <cpp_type>;` typedef per register file.
+
+An include is written with its delimiters (`<fp8.h>` or `"fp8.h"`), or bare (`fp8.h`,
+emitted as `<fp8.h>`). Genuinely novel numerics (fixed-point, posit) still need custom
+lowering and are out of scope. The [`npu-probe`](../../examples/npu-probe/) example
+declares `fp8_e4m3` with a C type + header and types its `qreg`/`tile` files with it.
 
 ## All three together
 

@@ -13,6 +13,19 @@ spec:
   version: "0.4"
   extends: "../isa.yaml"
 
+  # ── Trap wiring ─────────────────────────────────────────────────────
+  # Names which CSRs hold the vector / saved-PC / cause so that trap() and
+  # trap_return() in a behavior know where to read and write. The CSRs
+  # themselves are declared in state.csrs below.
+  trap:
+    vector_csr: mtvec
+    epc_csr:    mepc
+    cause_csr:  mcause
+    status_csr: mstatus
+    causes:
+      ecall_m: 11        # environment call from M-mode
+      illegal: 2         # illegal instruction
+
   state:
     csrs:
       - name: cycle
@@ -54,3 +67,107 @@ spec:
         fields:
           - { name: code,      start: 0,  end: 30, access: rw, description: "Trap cause code" }
           - { name: interrupt, start: 31, end: 31, access: rw, description: "1 = interrupt, 0 = exception" }
+
+# ── System / CSR instruction encodings (SYSTEM opcode, 0x73) ───────────
+# These make the trap CSRs above actually usable: take a trap, return from
+# one, and read/write CSRs. The opcode 0x73 is unused by base pico32, so
+# these never collide with its instructions.
+---
+apiVersion: isa-archive/v1
+kind: Constant
+metadata: { name: SYSTEM, description: system / CSR opcode }
+spec: { value: 0x73, width: 7 }
+---
+apiVersion: isa-archive/v1
+kind: Enum
+metadata: { name: F3_SYS, description: system funct3 selector }
+spec:
+  width: 3
+  values: { PRIV: 0, CSRRW: 1, CSRRS: 2 }   # PRIV: ecall/mret; CSRR*: CSR access
+---
+apiVersion: isa-archive/v1
+kind: Enum
+metadata: { name: F12_SYS, description: privileged-instruction selector (funct12) }
+spec:
+  width: 12
+  values: { ECALL: 0x000, MRET: 0x302 }
+---
+apiVersion: isa-archive/v1
+kind: Schema
+metadata:
+  name: SystemPriv
+  description: Privileged, operand-less — ecall / mret (selected by funct12)
+spec:
+  length: 32
+  fields:
+    - { name: opcode,  start: 0,  width: 7,  role: opcode }
+    - { name: rd,      start: 7,  width: 5,  role: reserved }
+    - { name: funct3,  start: 12, width: 3,  role: constant, type: enum.F3_SYS }
+    - { name: rs1,     start: 15, width: 5,  role: reserved }
+    - { name: funct12, start: 20, width: 12, role: constant, type: enum.F12_SYS }
+---
+apiVersion: isa-archive/v1
+kind: Schema
+metadata:
+  name: CSRType
+  description: CSR access — rd ← CSR (and optionally CSR ← rs1); CSR fixed per instr
+spec:
+  length: 32
+  fields:
+    - { name: opcode, start: 0,  width: 7,  role: opcode }
+    - { name: rd,     start: 7,  width: 5,  role: register, type: gpr }
+    - { name: funct3, start: 12, width: 3,  role: constant, type: enum.F3_SYS }
+    - { name: rs1,    start: 15, width: 5,  role: register, type: gpr }
+    - { name: csr,    start: 20, width: 12, role: constant }
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata: { name: ECALL, description: "Environment call — raise an M-mode trap" }
+spec:
+  schema: SystemPriv
+  opcode: SYSTEM
+  funct3: F3_SYS.PRIV
+  funct12: F12_SYS.ECALL
+  behavior: "trap(ecall_m)"
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata: { name: MRET, description: "Machine-mode trap return — resume at mepc" }
+spec:
+  schema: SystemPriv
+  opcode: SYSTEM
+  funct3: F3_SYS.PRIV
+  funct12: F12_SYS.MRET
+  behavior: "trap_return()"
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata: { name: CSRW_TVEC, description: "Set trap vector: rd ← mtvec; mtvec ← rs1" }
+spec:
+  schema: CSRType
+  opcode: SYSTEM
+  funct3: F3_SYS.CSRRW
+  csr: 0x305
+  behavior: |
+    rd = csr.mtvec
+    csr.mtvec = rs1
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata: { name: CSRR_CAUSE, description: "Read trap cause: rd ← mcause" }
+spec:
+  schema: CSRType
+  opcode: SYSTEM
+  funct3: F3_SYS.CSRRS
+  csr: 0x342
+  behavior: "rd = csr.mcause"
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata: { name: CSRR_MIE, description: "Read mstatus.MIE field: rd ← mstatus.mie" }
+spec:
+  schema: CSRType
+  opcode: SYSTEM
+  funct3: F3_SYS.CSRRS
+  csr: 0x300
+  behavior: "rd = zext(csr.mstatus.mie)"
