@@ -196,7 +196,7 @@ extension inherits a base ISA's registers, schemas, ABI, and target identity and
 | LLVM backend (mirrors the LLVM source tree) | `llvm` | `llvm/lib/Target/{ISA}/`, `COMPILER_COVERAGE.md`, `patch_llvm.sh` |
 | Standalone assembler + linker script | `asm` | `{isa}_asm.py`, `linker.ld` |
 | C / Rust intrinsics + structs + CSR headers | `c` · `rust` | `{isa}_intrinsics.{h,rs}`, `{isa}_structs.*`, `{isa}_csrs.*` |
-| C++ ISA-description headers (enums + decode + metadata) | `cpp-isa` | `{isa}_enums.h`, `{isa}_info.h`, `{isa}_decode.h`, `{isa}_model.h` |
+| C++ ISA-description headers (enums + decode + encode + metadata) | `cpp-isa` | `{Isa}.h`, `{Isa}Enums.h`, `{Isa}InstrInfo.h`, `{Isa}Decoder.h`, `{Isa}Encoder.h` |
 | SystemVerilog datapath / RTL skeleton | `verilog` | `{isa}_operands.sv`, per-block modules, top module |
 | Reference manual | `docs` | `{isa}_reference.md` / `.html` / `.pdf` |
 | Everything except the full `qemu` tree and `cpp-isa` | `all` | `verilog`, `llvm`, `c`, `rust`, `docs`, `qemu-isa` |

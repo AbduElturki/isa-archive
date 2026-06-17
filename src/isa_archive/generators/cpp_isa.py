@@ -5,6 +5,7 @@ not an executing simulator.
 """
 import logging
 import pathlib
+import re
 
 from ..compiler.loader import Registry
 from ..compiler.utils import compute_insn_width, compute_decode_fields, sanitize_ident as _ident
@@ -13,6 +14,12 @@ from ..models.scalar_types import of_register
 from .base import make_jinja_env, prepare_output_dir, write_generated, make_renderer, CLANG_FORMAT_LLVM
 
 logger = logging.getLogger("isa_archive.generators")
+
+
+def _pascal(name: str) -> str:
+    """ISA name → PascalCase prefix for the generated header file names
+    (e.g. 'npu-probe' → 'NpuProbe', 'pico32' → 'Pico32')."""
+    return "".join(p[:1].upper() + p[1:] for p in re.split(r"[^A-Za-z0-9]+", name) if p)
 
 
 def _uarch_latencies(registry: Registry, isa_name: str) -> dict[str, int]:
@@ -54,6 +61,21 @@ def _instr_info(instr, isa_reg, latencies: dict[str, int]) -> dict:
     exec_type = instr.spec.exec_type or ""
     asm_ops = ", ".join(o["name"] for o in operands)
     behavior = " ".join(instr.spec.behavior.split())
+    # Encoder signature: one `unsigned` per register operand, then one `int64_t imm`
+    # if the instruction has an immediate (split immediates take the single logical
+    # value and are distributed across their hardware fields by the encoder).
+    enc_args = [f"unsigned {o['name']}" for o in operands if o["kind"] == "Reg"]
+    if imm is not None:
+        enc_args.append("int64_t imm")
+    # Field masks for the encoder (Jinja has no shift operator, so precompute them).
+    for o in operands:
+        o["mask"] = (1 << o["width"]) - 1
+    if imm is not None:
+        if imm["combined"]:
+            for p in imm["parts"]:
+                p["mask"] = (1 << p["hw_width"]) - 1
+        else:
+            imm["mask"] = (1 << imm["width"]) - 1
     return {
         "enum": _ident(name.upper()),
         "mnemonic": name.lower(),
@@ -70,6 +92,7 @@ def _instr_info(instr, isa_reg, latencies: dict[str, int]) -> dict:
         "asm_format": f"{name.lower()} {asm_ops}".rstrip(),
         "imm": imm,
         "fixed": fixed,
+        "enc_signature": ", ".join(enc_args),
     }
 
 
@@ -80,7 +103,8 @@ def generate_cpp_isa(registry: Registry, output_dir: str, clang_format: bool = F
 
     for isa_reg in registry.isas.values():
         isa_name = isa_reg.name
-        ns = _ident(isa_name)
+        ns = _ident(isa_name)            # namespace (lowercase): npu_probe
+        cls = _pascal(isa_name)          # header file prefix (PascalCase): NpuProbe
         guard = _ident(isa_name).upper()
 
         try:
@@ -126,21 +150,22 @@ def generate_cpp_isa(registry: Registry, output_dir: str, clang_format: bool = F
                     elem_includes.append(inc)
                 elem_types.append({"name": _ident(r.name), "ctype": st.eff_cpp_type})
 
-        ctx = dict(isa_name=isa_name, ns=ns, guard=guard,
+        ctx = dict(isa_name=isa_name, ns=ns, cls=cls, guard=guard,
                    insn_bits=insn["insn_bits"], insn_bytes=insn["insn_bytes"],
                    wide=insn["insn_bits"] > 64,   # >64-bit words use a byte-array Word
                    instrs=instrs, decode_order=decode_order, categories=categories,
                    reg_classes=reg_classes, has_uarch=bool(latencies),
                    elem_includes=elem_includes, elem_types=elem_types)
 
-        out = root / ns
+        out = root / cls
         out.mkdir(parents=True, exist_ok=True)
 
         render = make_renderer(env, ctx, clang_format=clang_format)
-        render("cpp_isa/enums.h.j2", out / f"{ns}_enums.h")
-        render("cpp_isa/info.h.j2", out / f"{ns}_info.h")
-        render("cpp_isa/decode.h.j2", out / f"{ns}_decode.h")
-        render("cpp_isa/model.h.j2", out / f"{ns}_model.h")
+        render("cpp_isa/enums.h.j2", out / f"{cls}Enums.h")
+        render("cpp_isa/info.h.j2", out / f"{cls}InstrInfo.h")
+        render("cpp_isa/decode.h.j2", out / f"{cls}Decoder.h")
+        render("cpp_isa/encoder.h.j2", out / f"{cls}Encoder.h")
+        render("cpp_isa/model.h.j2", out / f"{cls}.h")
         render("cpp_isa/example_main.cpp.j2", out / "example_main.cpp")
         render("cpp_isa/INTEGRATE.md.j2", out / "INTEGRATE.md")
 

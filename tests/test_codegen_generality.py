@@ -636,7 +636,7 @@ def test_decode_chunks_fields_wider_than_64_bits(tmp_path):
     # (b) cpp-isa decode emits a get_bits check per chunk (incl. bits >= 64).
     from isa_archive.generators.cpp_isa import generate_cpp_isa
     generate_cpp_isa(reg, str(tmp_path / "cpp"))
-    dec = (tmp_path / "cpp" / "test_isa" / "test_isa_decode.h").read_text()
+    dec = (tmp_path / "cpp" / "TestIsa" / "TestIsaDecoder.h").read_text()
     assert "get_bits(word, 50, 64) == 7ull" in dec
     assert "get_bits(word, 114, 14) == 2ull" in dec
     assert "get_bits(word, 256, 64) == 0ull" in dec

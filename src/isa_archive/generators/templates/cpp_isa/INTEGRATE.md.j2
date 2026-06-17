@@ -8,16 +8,17 @@ they do not execute instructions or model state.
 
 | Header | Contents |
 |---|---|
-| `{{ ns }}_enums.h` | `enum class Op` (one per instruction) + `mnemonic()`; `RegClass`; `Category`; `OperandKind` |
-| `{{ ns }}_info.h` | `struct InstrInfo` / `OperandInfo` + `info(Op)` — opcode, mask/match, operands, category, exec_type, behavior string, latency |
-| `{{ ns }}_decode.h` | `decode(word) -> Op`, `get_bits()` / `sext()`, `decode_imm(op, word)` |
-| `{{ ns }}_model.h` | umbrella include |
+| `{{ cls }}Enums.h` | `enum class Op` (one per instruction) + `mnemonic()`; `RegClass`; `Category`; `OperandKind` |
+| `{{ cls }}InstrInfo.h` | `struct InstrInfo` / `OperandInfo` + `info(Op)` — opcode, mask/match, operands, category, exec_type, behavior string, latency |
+| `{{ cls }}Decoder.h` | `decode(word) -> Op`, `get_bits()` / `sext()`, `decode_imm(op, word)` |
+| `{{ cls }}Encoder.h` | `encode_<OP>(operands…) -> word`, one per instruction — the inverse of the decoder |
+| `{{ cls }}.h` | umbrella include |
 | `example_main.cpp` | a runnable example |
 
 ## Use
 
 ```cpp
-#include "{{ ns }}_model.h"
+#include "{{ cls }}.h"
 using namespace {{ ns }};
 
 Op op = decode(word);

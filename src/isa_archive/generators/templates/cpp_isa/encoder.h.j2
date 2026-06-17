@@ -1,0 +1,58 @@
+{% import "_macros.j2" as m %}{{ m.file_header('c', isa_name) }}
+#pragma once
+
+{% if wide %}
+#include "{{ cls }}Decoder.h"   // Word
+{%- else %}
+#include <cstdint>
+{%- endif %}
+
+// One encoder per instruction: build the raw instruction word from its operands.
+// The fixed bits (opcode / constants / reserved) come from the manifest; register
+// indices and the immediate are placed into their schema fields. Inverse of the
+// decoder ({{ cls }}Decoder.h) — encode then decode round-trips.
+
+namespace {{ ns }} {
+
+{% if wide %}
+// Write the low `width` bits of `value` at bit `start` in the little-endian word.
+inline void set_bits(Word &word, unsigned start, unsigned width, uint64_t value) {
+    for (unsigned i = 0; i < width; ++i) {
+        unsigned b = start + i;
+        uint8_t bit = (uint8_t)(1u << (b & 7));
+        if ((value >> i) & 1u) word[b >> 3] |= bit;
+        else                   word[b >> 3] &= (uint8_t)~bit;
+    }
+}
+{% endif %}
+{% for it in instrs %}
+inline {{ "Word" if wide else "uint64_t" }} encode_{{ it.enum }}({{ it.enc_signature }}) {
+{%- if wide %}
+    Word w{};
+{%- for f in it.fixed %}
+    set_bits(w, {{ f.start }}, {{ f.width }}, {{ f.val }}ull);
+{%- endfor %}
+{%- for o in it.operands if o.kind == "Reg" %}
+    set_bits(w, {{ o.start }}, {{ o.width }}, (uint64_t){{ o.name }});
+{%- endfor %}
+{%- if it.imm %}{% if it.imm.combined %}{% for p in it.imm.parts %}
+    set_bits(w, {{ p.hw_low }}, {{ p.hw_width }}, (uint64_t)((uint64_t)imm >> {{ p.imm_low }}));
+{%- endfor %}{% else %}
+    set_bits(w, {{ it.imm.start }}, {{ it.imm.width }}, (uint64_t)imm);
+{%- endif %}{% endif %}
+    return w;
+{%- else %}
+    uint64_t w = {{ "0x%xULL" % it.match }};
+{%- for o in it.operands if o.kind == "Reg" %}
+    w |= (uint64_t)({{ o.name }} & {{ "0x%xu" % o.mask }}) << {{ o.start }};
+{%- endfor %}
+{%- if it.imm %}{% if it.imm.combined %}{% for p in it.imm.parts %}
+    w |= (((uint64_t)imm >> {{ p.imm_low }}) & {{ "0x%xu" % p.mask }}) << {{ p.hw_low }};
+{%- endfor %}{% else %}
+    w |= ((uint64_t)imm & {{ "0x%xu" % it.imm.mask }}) << {{ it.imm.start }};
+{%- endif %}{% endif %}
+    return w;
+{%- endif %}
+}
+{% endfor %}
+} // namespace {{ ns }}

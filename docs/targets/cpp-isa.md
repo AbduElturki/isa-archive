@@ -13,10 +13,14 @@ Produces, per ISA, in `<out>/<isa>/`:
 
 | File | Contents |
 |---|---|
-| `<isa>_enums.h` | `enum class Op` (one per instruction) + `mnemonic()`; `RegClass` + `reg_class_name()`; `Category` (from each instruction's `exec_type`); `OperandKind`. For register files typed with a custom [`ScalarType`](../yaml/types.md), a `using <file>_elem_t = …;` typedef and its `#include`. |
-| `<isa>_info.h` | `struct InstrInfo` / `OperandInfo` and an `info(Op)` table: opcode, `mask`/`match`, operands (name, bit range, kind, register class), category, `exec_type`, the source `behavior:` string, and `latency`. |
-| `<isa>_decode.h` | `Op decode(word)` (most-specific match first), `get_bits()` / `sext()`, and `decode_imm(Op, word)` that reassembles split and signed immediates. Words wider than 64 bits use a little-endian byte-array `Word` plus a `get_bits_wide()` accessor for fields that don't fit in 64 bits (see below). |
-| `<isa>_model.h` | umbrella header - includes the three above. |
+| `<Isa>Enums.h` | `enum class Op` (one per instruction) + `mnemonic()`; `RegClass` + `reg_class_name()`; `Category` (from each instruction's `exec_type`); `OperandKind`. For register files typed with a custom [`ScalarType`](../yaml/types.md), a `using <file>_elem_t = …;` typedef and its `#include`. |
+| `<Isa>InstrInfo.h` | `struct InstrInfo` / `OperandInfo` and an `info(Op)` table: opcode, `mask`/`match`, operands (name, bit range, kind, register class), category, `exec_type`, the source `behavior:` string, and `latency`. |
+| `<Isa>Decoder.h` | `Op decode(word)` (most-specific match first), `get_bits()` / `sext()`, and `decode_imm(Op, word)` that reassembles split and signed immediates. Words wider than 64 bits use a little-endian byte-array `Word` plus a `get_bits_wide()` accessor for fields that don't fit in 64 bits (see below). |
+| `<Isa>Encoder.h` | `encode_<OP>(operands…) -> word`, one inline function per instruction - the **inverse** of the decoder. Sets the fixed bits from the manifest and places each register index / immediate (distributing split immediates) into its schema field. |
+| `<Isa>.h` | umbrella header - includes the four above. |
+
+`<Isa>` is the ISA name in PascalCase (`npu-probe` → `NpuProbe`); the C++ namespace is the
+lowercase form (`npu_probe`).
 | `example_main.cpp`, `INTEGRATE.md` | a usage sketch and step-by-step adoption notes. |
 
 A `.clang-format` is written beside them; pass `--clang-format` to format the output in place.
@@ -24,7 +28,7 @@ A `.clang-format` is written beside them; pass `--clang-format` to format the ou
 Include the umbrella and you have the whole description:
 
 ```cpp
-#include "npu_probe/npu_probe_model.h"
+#include "NpuProbe/NpuProbe.h"
 
 npu_probe::Op op = npu_probe::decode(word);
 const auto &i  = npu_probe::info(op);          // opcode, operands, category, latency, …
@@ -42,10 +46,12 @@ It **is not** a simulator. The `behavior:` string is carried verbatim as a *refe
 executable) - you write the compute in your own model. For an executable model, generate
 [`-t qemu`](../qemu/README.md) instead.
 
-This is also **the decoder/disassembler** for the project: `decode()` + `info()` + `decode_imm()`
-identify an instruction and recover its operands from raw bytes. There is intentionally no separate
-LLVM `MCDisassembler` generated - the LLVM target generates the *assembler/encoder* side (MC code
-emitter, fixups), and this header is the decode side, compile-tested as part of the suite.
+This is also **the decoder and encoder** for the project: `decode()` + `info()` + `decode_imm()`
+recover an instruction and its operands from raw bytes, and `encode_<OP>(…)` builds the word back
+from operands. Both derive from the same manifest field layout, so they round-trip - the test suite
+encodes with the encoder and decodes with the decoder and checks they agree. There is intentionally
+no separate LLVM `MCDisassembler`; the LLVM target covers the MC *encoder* path (code emitter,
+fixups), and these headers are the standalone, compile-tested decode/encode side.
 
 ## Decoding any instruction width
 
@@ -64,7 +70,7 @@ For instruction words up to 64 bits the `Word` is a plain `uint64_t`. For wider 
 ## Custom element types
 
 A register file whose element is a [`kind: ScalarType`](../yaml/types.md) with a `cpp_type` /
-`cpp_include` gets a `using <file>_elem_t = <cpp_type>;` typedef in `<isa>_enums.h`, and the header
+`cpp_include` gets a `using <file>_elem_t = <cpp_type>;` typedef in `<Isa>Enums.h`, and the header
 is `#include`d so the typedef resolves. The bundled
 [`npu-probe`](../../examples/npu-probe/) example does this for its `fp8_e4m3` tile/vector files
 (`#include <npu_fp8.h>`, `using qreg_elem_t = fp8e4m3_t;`).

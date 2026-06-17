@@ -55,7 +55,7 @@ def test_build_routes_each_target_to_its_path(tmp_path):
     assert r.exit_code == 0, r.output
     assert (tmp_path / "out/qemu/target/pico32/pico32.decode").exists()
     assert (tmp_path / "out/td/llvm/lib/Target/PICO32/PICO32InstrInfo.td").exists()
-    assert (tmp_path / "out/model/pico32/pico32_enums.h").exists()
+    assert (tmp_path / "out/model/Pico32/Pico32Enums.h").exists()
 
 
 def test_subtargets_emit_only_their_subset(tmp_path):
@@ -77,7 +77,7 @@ def test_on_exist_skip_preserves_edits(tmp_path):
     p = _project(tmp_path, ["{ target: cpp-isa, output: out, on_exist: skip }"],
                  with_uarch=False)
     assert runner.invoke(app, ["build", str(p)]).exit_code == 0
-    edited = tmp_path / "out/pico32/pico32_enums.h"
+    edited = tmp_path / "out/Pico32/Pico32Enums.h"
     edited.write_text("EDITED\n")
     r = runner.invoke(app, ["build", str(p)])
     assert r.exit_code == 0 and "skip" in r.output
@@ -95,7 +95,7 @@ def test_on_exist_error_raises(tmp_path):
 def test_on_exist_overwrite_rewrites(tmp_path):
     p = _project(tmp_path, ["{ target: cpp-isa, output: out }"], with_uarch=False)
     assert runner.invoke(app, ["build", str(p)]).exit_code == 0
-    edited = tmp_path / "out/pico32/pico32_enums.h"
+    edited = tmp_path / "out/Pico32/Pico32Enums.h"
     edited.write_text("EDITED\n")
     assert runner.invoke(app, ["build", str(p)]).exit_code == 0
     assert "enum class Op" in edited.read_text()   # regenerated
