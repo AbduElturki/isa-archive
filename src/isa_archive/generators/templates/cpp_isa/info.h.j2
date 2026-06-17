@@ -23,8 +23,10 @@ struct InstrInfo {
     const char *mnemonic;
     const char *asm_format;
     uint32_t opcode;
+{%- if not wide %}
     uint64_t mask;        // (word & mask) == match identifies this instruction
     uint64_t match;
+{%- endif %}
     Category category;
     const char *exec_type;
     const char *behavior; // source behavior (reference; not executable)
@@ -46,13 +48,13 @@ inline const OperandInfo {{ it.enum }}_operands[] = {
 inline const InstrInfo &info(Op op) {
     static const InstrInfo table[] = {
 {%- for it in instrs %}
-        { Op::{{ it.enum }}, "{{ it.mnemonic }}", "{{ it.asm_format }}", {{ "0x%x" % it.opcode }}, {{ "0x%xULL" % it.mask }}, {{ "0x%xULL" % it.match }}, Category::{{ it.category }}, "{{ it.exec_type }}", "{{ it.behavior }}", {{ it.latency }}, {{ (it.enum ~ "_operands") if it.operands else "nullptr" }}, {{ it.operands | length }} },
+        { Op::{{ it.enum }}, "{{ it.mnemonic }}", "{{ it.asm_format }}", {{ "0x%x" % it.opcode }}, {% if not wide %}{{ "0x%xULL" % it.mask }}, {{ "0x%xULL" % it.match }}, {% endif %}Category::{{ it.category }}, "{{ it.exec_type }}", "{{ it.behavior }}", {{ it.latency }}, {{ (it.enum ~ "_operands") if it.operands else "nullptr" }}, {{ it.operands | length }} },
 {%- endfor %}
     };
     for (const auto &e : table)
         if (e.op == op)
             return e;
-    static const InstrInfo invalid = { Op::INVALID, "<invalid>", "", 0, 0, 0,
+    static const InstrInfo invalid = { Op::INVALID, "<invalid>", "", 0,{% if not wide %} 0, 0,{% endif %}
                                        Category::none, "", "", 0, nullptr, 0 };
     return invalid;
 }

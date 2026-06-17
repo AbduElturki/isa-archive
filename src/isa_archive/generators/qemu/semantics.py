@@ -4,7 +4,7 @@ from ...compiler.behavior import BehaviorIR
 from ...compiler.backends import QemuCBackend, QemuTCGBackend
 from ...compiler.utils import (build_reg_maps, instruction_pattern, constraint_to_c,
                                csr_map, build_csr_info, build_trap_info, build_regfile_shapes,
-                               build_regfile_attrs)
+                               build_regfile_attrs, compute_decode_fields)
 from ...models.enums import FieldRole
 from ...models.scalar_types import of_register
 from ..base import make_jinja_env
@@ -122,6 +122,35 @@ def _instr_qemu_info(instr, isa_reg, storage: dict[str, dict]) -> dict:
         "is_conditional_branch": is_conditional_branch,
         "constraints": constraints,
     }
+
+
+def _build_wide_decode_meta(isa_reg) -> list:
+    """Per-instruction metadata for the hand-written >64-bit decoder (the path that
+    replaces decodetree, which caps at 64 bits).
+
+    For each instruction: ``fixed`` (the opcode/constant/reserved bits to match) and
+    ``args`` (every non-fixed field to extract into ``arg_<fn>``). The field set and
+    the sign-extension flag exactly mirror what decodetree produces for <=64-bit
+    ISAs — raw per-field extraction, split immediates left for the helper to
+    reassemble — so the unchanged ``trans_*`` functions (which read ``a-><field>``)
+    work identically. Sorted most-specific-first (most fixed bits) so a more general
+    encoding can't shadow a more specific one.
+    """
+    out = []
+    for instr in isa_reg.instructions.values():
+        schema = isa_reg.schemas[instr.spec.schema_name]
+        fixed = compute_decode_fields(instr, schema, isa_reg)["fixed"]
+        args = [{"name": f.name, "start": f.start, "width": f.width,
+                 "signed": bool(getattr(f, "is_signed", False))}
+                for f in schema.spec.fields if not f.is_fixed_value]
+        out.append({
+            "fn": instr.metadata.name.lower().replace("-", "_"),
+            "fixed": fixed,
+            "args": args,
+            "fixed_bits": sum(x["width"] for x in fixed),
+        })
+    out.sort(key=lambda it: it["fixed_bits"], reverse=True)
+    return out
 
 
 def _make_qemu_env():

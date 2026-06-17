@@ -15,6 +15,9 @@
 #include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
+{#- op value type: <=32-bit (unsigned) on narrow ISAs; uint64_t for wide words so a
+    field wider than 32 bits isn't truncated out of MO.getImm(). -#}
+{%- set op_val_type = "unsigned" if insn_uint else "uint64_t" %}
 
 namespace {
 
@@ -43,7 +46,7 @@ public:
                              const MCSubtargetInfo &STI) const;
 {% endif %}
 
-  unsigned getMachineOpValue(const MCInst &MI, const MCOperand &MO,
+  {{ op_val_type }} getMachineOpValue(const MCInst &MI, const MCOperand &MO,
                               SmallVectorImpl<MCFixup> &Fixups,
                               const MCSubtargetInfo &STI) const;
 };
@@ -81,14 +84,14 @@ void {{ ISA }}MCCodeEmitter::encodeInstruction(
 {% endif %}
 }
 
-unsigned {{ ISA }}MCCodeEmitter::getMachineOpValue(
+{{ op_val_type }} {{ ISA }}MCCodeEmitter::getMachineOpValue(
     const MCInst &MI, const MCOperand &MO,
     SmallVectorImpl<MCFixup> &Fixups,
     const MCSubtargetInfo &STI) const {
   if (MO.isReg())
     return Ctx.getRegisterInfo()->getEncodingValue(MO.getReg());
   if (MO.isImm())
-    return static_cast<unsigned>(MO.getImm());
+    return static_cast<{{ op_val_type }}>(MO.getImm());
   if (MO.isExpr()) {
     unsigned Opcode = MI.getOpcode();
 {% set has_opcode_fixups = (jal_fixup_info and jal_opcode) or lui_fixup_info or addi_fixup_info %}
@@ -97,13 +100,13 @@ unsigned {{ ISA }}MCCodeEmitter::getMachineOpValue(
     // without an explicit entry uses the branch fixup as the fallback.
     static const struct { unsigned Opcode; MCFixupKind Kind; } FixupTable[] = {
 {%- if jal_fixup_info and jal_opcode %}
-        { {{ ISA }}::{{ jal_opcode }},  (MCFixupKind)fixup_{{ isa_name }}_jal },
+        { {{ ISA }}::{{ jal_opcode }},  (MCFixupKind)fixup_{{ fixup_ns }}_jal },
 {%- endif %}
 {%- if lui_fixup_info %}
-        { {{ ISA }}::{{ lui_opcode }},  (MCFixupKind)fixup_{{ isa_name }}_hi20 },
+        { {{ ISA }}::{{ lui_opcode }},  (MCFixupKind)fixup_{{ fixup_ns }}_hi20 },
 {%- endif %}
 {%- if addi_fixup_info %}
-        { {{ ISA }}::{{ addi_opcode }}, (MCFixupKind)fixup_{{ isa_name }}_lo12_i },
+        { {{ ISA }}::{{ addi_opcode }}, (MCFixupKind)fixup_{{ fixup_ns }}_lo12_i },
 {%- endif %}
     };
     MCFixupKind Kind;
@@ -113,7 +116,7 @@ unsigned {{ ISA }}MCCodeEmitter::getMachineOpValue(
     }
     if (!Found) {
 {%- if branch_fixup_info %}
-      Kind = (MCFixupKind)fixup_{{ isa_name }}_branch;
+      Kind = (MCFixupKind)fixup_{{ fixup_ns }}_branch;
 {%- else %}
       llvm_unreachable("{{ isa_name }}: MCExpr on an instruction with no fixup kind");
 {%- endif %}
@@ -121,7 +124,7 @@ unsigned {{ ISA }}MCCodeEmitter::getMachineOpValue(
 {%- else %}
     (void)Opcode;
 {%- if branch_fixup_info %}
-    MCFixupKind Kind = (MCFixupKind)fixup_{{ isa_name }}_branch;
+    MCFixupKind Kind = (MCFixupKind)fixup_{{ fixup_ns }}_branch;
 {%- else %}
     MCFixupKind Kind;
     llvm_unreachable("{{ isa_name }}: MCExpr with no fixup kind");

@@ -1,0 +1,54 @@
+{% import "_macros.j2" as m %}{{ m.file_header('c', isa_name) }}
+/* Hand-written decoder for the {{ insn_bits }}-bit instruction word: QEMU's
+ * decodetree caps at 64 bits, so a wider word is fetched as a little-endian byte
+ * array and its fields are read with get_bits (the same layout the assembler and
+ * cpp-isa use). The arg_<fn> structs and trans_<fn> dispatch mirror what decodetree
+ * emits for <=64-bit ISAs, so {{ isa_name }}_trans.c.inc is unchanged.
+ */
+
+/* Operand fields per instruction (decodetree's arg_* equivalent). */
+{% for it in wide_instrs %}
+typedef struct {
+{%- for a in it.args %}
+    int {{ a.name }};
+{%- endfor %}
+} arg_{{ it.fn }};
+{% endfor %}
+/* trans_* are defined later, in {{ isa_name }}_trans.c.inc. */
+{%- for it in wide_instrs %}
+static bool trans_{{ it.fn }}(DisasContext *ctx, arg_{{ it.fn }} *a);
+{%- endfor %}
+
+/* Read `width` (<= 64) bits starting at bit `start` from the little-endian word. */
+static inline uint64_t get_bits(const uint8_t *insn, unsigned start, unsigned width) {
+    uint64_t r = 0;
+    for (unsigned i = 0; i < width; i++) {
+        unsigned b = start + i;
+        r |= (uint64_t)((insn[b >> 3] >> (b & 7)) & 1u) << i;
+    }
+    return r;
+}
+
+/* Sign-extend the low `width` bits of `v`. */
+static inline int64_t wsext(uint64_t v, unsigned width) {
+    unsigned s = 64 - width;
+    return (int64_t)(v << s) >> s;
+}
+
+/* Identify and dispatch one instruction (most-specific match first). */
+static bool decode(DisasContext *ctx, const uint8_t *insn) {
+{%- for it in wide_instrs %}
+    if ({% for f in it.fixed %}{% if not loop.first %} && {% endif %}get_bits(insn, {{ f.start }}, {{ f.width }}) == {{ f.val }}ull{% else %}true{% endfor %}) {
+        arg_{{ it.fn }} a;
+{%- for a in it.args %}
+{%- if a.signed %}
+        a.{{ a.name }} = (int)wsext(get_bits(insn, {{ a.start }}, {{ a.width }}), {{ a.width }});
+{%- else %}
+        a.{{ a.name }} = (int)get_bits(insn, {{ a.start }}, {{ a.width }});
+{%- endif %}
+{%- endfor %}
+        return trans_{{ it.fn }}(ctx, &a);
+    }
+{%- endfor %}
+    return false;
+}

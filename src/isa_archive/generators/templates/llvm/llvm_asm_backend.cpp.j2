@@ -13,6 +13,9 @@
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
+{%- if wide %}
+#include "llvm/ADT/APInt.h"
+{%- endif %}
 #include <cstring>
 
 using namespace llvm;
@@ -32,16 +35,16 @@ public:
     // Name, BitOffset, BitWidth, Flags — covers the full 32-bit instruction word.
     static const MCFixupKindInfo Infos[{{ num_fixup_kinds if num_fixup_kinds > 0 else 1 }}] = {
 {% if jal_fixup_info %}
-      {"fixup_{{ isa_name }}_jal",    0, 32, MCFixupKindInfo::FKF_IsPCRel},
+      {"fixup_{{ fixup_ns }}_jal",    0, 32, MCFixupKindInfo::FKF_IsPCRel},
 {% endif %}
 {% if branch_fixup_info %}
-      {"fixup_{{ isa_name }}_branch", 0, 32, MCFixupKindInfo::FKF_IsPCRel},
+      {"fixup_{{ fixup_ns }}_branch", 0, 32, MCFixupKindInfo::FKF_IsPCRel},
 {% endif %}
 {% if lui_fixup_info %}
-      {"fixup_{{ isa_name }}_hi20",   0, 32, 0},  // absolute upper {{ lui_fixup_info.width }} bits ({{ lui_opcode }})
+      {"fixup_{{ fixup_ns }}_hi20",   0, 32, 0},  // absolute upper {{ lui_fixup_info.width }} bits ({{ lui_opcode }})
 {% endif %}
 {% if addi_fixup_info %}
-      {"fixup_{{ isa_name }}_lo12_i", 0, 32, 0},  // absolute lower {{ addi_fixup_info.width }} bits I-type ({{ addi_opcode }})
+      {"fixup_{{ fixup_ns }}_lo12_i", 0, 32, 0},  // absolute lower {{ addi_fixup_info.width }} bits I-type ({{ addi_opcode }})
 {% endif %}
     };
     if (Kind < FirstTargetFixupKind)
@@ -72,6 +75,49 @@ public:
     if (!Value)
       return;
 
+{% if wide %}
+    // Wider than 64 bits: apply the fixup with APInt so a field at bit >= 64 works
+    // (a uint64_t shift by >= 64 would be undefined behavior). insertBits both clears
+    // and sets the target bits, so no keep-mask is needed.
+    unsigned Kind = (unsigned)Fixup.getKind();
+    unsigned Off  = Fixup.getOffset();
+    const unsigned NBytes = {{ insn_bytes }};
+    APInt Insn(NBytes * 8, 0);
+    for (unsigned i = 0; i < NBytes; ++i)
+      Insn.insertBits(APInt(8, (uint8_t)Data[Off + i]), i * 8);
+
+{% if jal_fixup_info %}
+    if (Kind == fixup_{{ fixup_ns }}_jal) {
+      int64_t Imm = static_cast<int32_t>(Value);
+{% for p in jal_fixup_info.pieces %}
+      Insn.insertBits(APInt({{ p.width }}, static_cast<uint64_t>(Imm >> {{ p.imm_low }})), {{ p.hw_low }});
+{% endfor %}
+    }
+{% endif %}
+{% if branch_fixup_info %}
+{% if jal_fixup_info %}else {% endif %}if (Kind == fixup_{{ fixup_ns }}_branch) {
+      int64_t Imm = static_cast<int32_t>(Value);
+{% for p in branch_fixup_info.pieces %}
+      Insn.insertBits(APInt({{ p.width }}, static_cast<uint64_t>(Imm >> {{ p.imm_low }})), {{ p.hw_low }});
+{% endfor %}
+    }
+{% endif %}
+{% if lui_fixup_info %}
+{% if jal_fixup_info or branch_fixup_info %}else {% endif %}if (Kind == fixup_{{ fixup_ns }}_hi20) {
+      uint64_t Hi = (static_cast<uint64_t>(Value) + {{ lui_compensator }}u) >> {{ addi_width }};
+      Insn.insertBits(APInt({{ lui_fixup_info.width }}, Hi), {{ lui_fixup_info.bit_low }});
+    }
+{% endif %}
+{% if addi_fixup_info %}
+{% if jal_fixup_info or branch_fixup_info or lui_fixup_info %}else {% endif %}if (Kind == fixup_{{ fixup_ns }}_lo12_i) {
+      int64_t Lo = (static_cast<int64_t>(Value) << {{ 64 - addi_fixup_info.width }}) >> {{ 64 - addi_fixup_info.width }};
+      Insn.insertBits(APInt({{ addi_fixup_info.width }}, static_cast<uint64_t>(Lo)), {{ addi_fixup_info.bit_low }});
+    }
+{% endif %}
+
+    for (unsigned i = 0; i < NBytes; ++i)
+      Data[Off + i] = static_cast<char>(Insn.extractBitsAsZExtValue(8, i * 8));
+{% else -%}
 {% set insn_ctype = "uint32_t" if insn_bits <= 32 else "uint64_t" %}
 {% set fixup_bytes = insn_bytes if insn_bytes <= 8 else 8 %}
     unsigned Kind = (unsigned)Fixup.getKind();
@@ -80,7 +126,7 @@ public:
     memcpy(&Insn, Data.data() + Off, {{ fixup_bytes }});
 
 {% if jal_fixup_info %}
-    if (Kind == fixup_{{ isa_name }}_jal) {
+    if (Kind == fixup_{{ fixup_ns }}_jal) {
       // J-type bit layout derived from schema hw_assignments
       int32_t Imm = static_cast<int32_t>(Value);
       Insn &= {{ jal_fixup_info.keep_mask_hex }};
@@ -90,7 +136,7 @@ public:
     }
 {% endif %}
 {% if branch_fixup_info %}
-{% if jal_fixup_info %}else {% endif %}if (Kind == fixup_{{ isa_name }}_branch) {
+{% if jal_fixup_info %}else {% endif %}if (Kind == fixup_{{ fixup_ns }}_branch) {
       // B-type bit layout derived from schema hw_assignments
       int32_t Imm = static_cast<int32_t>(Value);
       Insn &= {{ branch_fixup_info.keep_mask_hex }};
@@ -100,7 +146,7 @@ public:
     }
 {% endif %}
 {% if lui_fixup_info %}
-{% if jal_fixup_info or branch_fixup_info %}else {% endif %}if (Kind == fixup_{{ isa_name }}_hi20) {
+{% if jal_fixup_info or branch_fixup_info %}else {% endif %}if (Kind == fixup_{{ fixup_ns }}_hi20) {
       // {{ lui_opcode }}: upper {{ lui_fixup_info.width }} bits at instruction bits [{{ lui_fixup_info.bit_high }}:{{ lui_fixup_info.bit_low }}]
       // +{{ lui_compensator }} compensates for sign-extension of the {{ addi_width }}-bit lo field
       {{ insn_ctype }} Hi{{ lui_fixup_info.width }} = ((static_cast<uint64_t>(Value) + {{ lui_compensator }}u) >> {{ addi_width }}) & {{ lui_fixup_info.val_mask_hex }};
@@ -109,7 +155,7 @@ public:
     }
 {% endif %}
 {% if addi_fixup_info %}
-{% if jal_fixup_info or branch_fixup_info or lui_fixup_info %}else {% endif %}if (Kind == fixup_{{ isa_name }}_lo12_i) {
+{% if jal_fixup_info or branch_fixup_info or lui_fixup_info %}else {% endif %}if (Kind == fixup_{{ fixup_ns }}_lo12_i) {
       // {{ addi_opcode }}: lower {{ addi_fixup_info.width }} bits at instruction bits [{{ addi_fixup_info.bit_high }}:{{ addi_fixup_info.bit_low }}]
       // Sign-extend the low {{ addi_fixup_info.width }} bits of the (data-width) value via int64_t.
       int64_t Lo{{ addi_fixup_info.width }} = (static_cast<int64_t>(Value) << {{ 64 - addi_fixup_info.width }}) >> {{ 64 - addi_fixup_info.width }};
@@ -119,6 +165,7 @@ public:
 {% endif %}
 
     memcpy(Data.data() + Off, &Insn, {{ fixup_bytes }});
+{%- endif %}
   }
 
   bool fixupNeedsRelaxation(const MCFixup &Fixup, uint64_t Value,

@@ -459,6 +459,10 @@ def generate_llvm(registry: Registry, output_dir: str, strict: bool = False,
             tcg_type="i64" if xlen == 64 else "i32",
             reserved_regs=_reserved_regs(rc["first_reg"], rc["abi"]),
             insn_bits=insn_bits, insn_bytes=insn_bytes, insn_uint=insn_uint,
+            wide=insn_bits > 64,  # >64-bit words: APInt encode + APInt fixups
+            # Fixup enum constants must be valid C identifiers; isa_name may contain
+            # hyphens (e.g. "npu-probe"). Equal to isa_name when already identifier-safe.
+            fixup_ns=isa_ident(isa_name, upper=False),
             **{k: v for k, v in rc.items() if k not in ("skip_regfiles", "first_reg")},
             **opc,
             **enc,

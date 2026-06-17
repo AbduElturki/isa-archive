@@ -562,7 +562,9 @@ def test_xlen16_machine_layout_must_fit_address_space(tmp_path):
 
 # ── G3: wide-instruction ceiling has an explanatory error ────────────────────
 
-def test_qemu_wide_insn_error_explains_ceiling(tmp_path):
+def test_qemu_wide_insn_uses_handwritten_decoder(tmp_path):
+    # A 128-bit word is wider than any QEMU load and beyond decodetree's 64-bit
+    # cap, so QEMU fetches it as a byte array and emits a hand-written decoder.
     wide = Schema(
         metadata=Metadata(name="W128"),
         spec=SchemaSpec(length=128, fields=[
@@ -574,8 +576,77 @@ def test_qemu_wide_insn_error_explains_ceiling(tmp_path):
         ]),
     )
     registry = _registry([_gpr(count=16)], [wide], [_instr(schema="W128")])
-    with pytest.raises(ValueError, match="LLVM-only"):
+    generate_qemu_isa(registry, str(tmp_path))
+    dec = (tmp_path / "decode-test-isa.c.inc").read_text()
+    assert "static bool decode(DisasContext *ctx, const uint8_t *insn)" in dec
+    assert "get_bits(insn," in dec
+    assert not (tmp_path / "test-isa.decode").exists()  # decodetree path skipped
+
+
+def test_qemu_over_512_bit_insn_rejected(tmp_path):
+    # 512 bits is the ceiling; wider words still error, with an explanatory message.
+    huge = Schema(
+        metadata=Metadata(name="W520"),
+        spec=SchemaSpec(length=520, fields=[
+            SchemaField(name="opcode", start=0, width=8, role="opcode"),
+            SchemaField(name="rd", start=8, width=4, role="register", type="gpr"),
+            SchemaField(name="rs1", start=12, width=4, role="register", type="gpr"),
+            SchemaField(name="rs2", start=16, width=4, role="register", type="gpr"),
+            SchemaField(name="pad", start=20, width=500, role="reserved"),
+        ]),
+    )
+    registry = _registry([_gpr(count=16)], [huge], [_instr(schema="W520")])
+    with pytest.raises(ValueError, match="512"):
         generate_qemu_isa(registry, str(tmp_path))
+
+
+def test_decode_chunks_fields_wider_than_64_bits(tmp_path):
+    # A 320-bit instruction with a >64-bit constant and a >64-bit reserved field.
+    # get_bits returns uint64_t, so such fields must be matched in <=64-bit chunks —
+    # otherwise bits >= 64 are silently ignored (a decode-correctness bug).
+    BIGVAL = (2 << 64) | 7  # 67-bit constant: low 64 bits = 7, next bits = 2
+    schema = Schema(
+        metadata=Metadata(name="W320"),
+        spec=SchemaSpec(length=320, fields=[
+            SchemaField(name="opcode", start=0, width=8, role="opcode"),
+            SchemaField(name="rd", start=8, width=5, role="register", type="gpr"),
+            SchemaField(name="rs1", start=13, width=5, role="register", type="gpr"),
+            SchemaField(name="imm", start=18, width=32, role="immediate", type="signed"),
+            SchemaField(name="bigc", start=50, width=78, role="constant"),
+            SchemaField(name="resv", start=128, width=192, role="reserved"),
+        ]),
+    )
+    instr = Instruction(
+        metadata=Metadata(name="WOP"),
+        spec=InstructionSpec(**{"schema": "W320", "opcode": 0x01,
+                                "constants": {"bigc": BIGVAL},
+                                "behavior": "rd = rs1 + imm"}),
+    )
+    reg = _registry([_gpr(count=32)], [schema], [instr])
+    isa_reg = reg.isas["test-isa"]
+
+    # (a) compute_decode_fields splits >64-bit fields into <=64-bit chunks.
+    from isa_archive.compiler.utils import compute_decode_fields
+    fixed = compute_decode_fields(instr, schema, isa_reg)["fixed"]
+    assert all(f["width"] <= 64 for f in fixed)
+    assert {"start": 50, "width": 64, "val": 7} in fixed   # bigc low 64 @ bit 50
+    assert {"start": 114, "width": 14, "val": 2} in fixed  # bigc high 14 @ bit 114
+    assert {"start": 256, "width": 64, "val": 0} in fixed  # resv high chunk (bit >= 64)
+
+    # (b) cpp-isa decode emits a get_bits check per chunk (incl. bits >= 64).
+    from isa_archive.generators.cpp_isa import generate_cpp_isa
+    generate_cpp_isa(reg, str(tmp_path / "cpp"))
+    dec = (tmp_path / "cpp" / "test_isa" / "test_isa_decode.h").read_text()
+    assert "get_bits(word, 50, 64) == 7ull" in dec
+    assert "get_bits(word, 114, 14) == 2ull" in dec
+    assert "get_bits(word, 256, 64) == 0ull" in dec
+    assert "get_bits_wide(" in dec  # arbitrary-width field accessor present
+
+    # (c) QEMU wide decoder chunks the same way.
+    generate_qemu_isa(reg, str(tmp_path / "qemu"))
+    qd = (tmp_path / "qemu" / "decode-test-isa.c.inc").read_text()
+    assert "get_bits(insn, 50, 64) == 7ull" in qd
+    assert "get_bits(insn, 114, 14) == 2ull" in qd
 
 
 # ── examples/npu-probe: the generality contract, end to end ──────────────────

@@ -31,19 +31,19 @@ public:
                         const MCFixup &Fixup, bool IsPCRel) const override {
     switch ((unsigned)Fixup.getKind()) {
 {% if jal_fixup_info %}
-    case fixup_{{ isa_name }}_jal:
+    case fixup_{{ fixup_ns }}_jal:
       return {{ reloc("jal") }};
 {% endif %}
 {% if branch_fixup_info %}
-    case fixup_{{ isa_name }}_branch:
+    case fixup_{{ fixup_ns }}_branch:
       return {{ reloc("branch") }};
 {% endif %}
 {% if lui_fixup_info %}
-    case fixup_{{ isa_name }}_hi20:
+    case fixup_{{ fixup_ns }}_hi20:
       return {{ reloc("hi20") }};
 {% endif %}
 {% if addi_fixup_info %}
-    case fixup_{{ isa_name }}_lo12_i:
+    case fixup_{{ fixup_ns }}_lo12_i:
       return {{ reloc("lo12_i") }};
 {% endif %}
     default:

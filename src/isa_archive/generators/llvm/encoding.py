@@ -125,6 +125,7 @@ def _compute_fixup_info(hw_assignments: list, insn_bits: int = 32) -> dict:
         pieces.append({
             "imm_low": imm_low,
             "hw_low": hw_low,
+            "width": width,  # field bit-width (the wide/APInt fixup path uses this)
             "mask_hex": f"0x{(1 << width) - 1:X}u",
         })
     return {

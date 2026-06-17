@@ -15,7 +15,7 @@ Produces, per ISA, in `<out>/<isa>/`:
 |---|---|
 | `<isa>_enums.h` | `enum class Op` (one per instruction) + `mnemonic()`; `RegClass` + `reg_class_name()`; `Category` (from each instruction's `exec_type`); `OperandKind`. For register files typed with a custom [`ScalarType`](../yaml/types.md), a `using <file>_elem_t = …;` typedef and its `#include`. |
 | `<isa>_info.h` | `struct InstrInfo` / `OperandInfo` and an `info(Op)` table: opcode, `mask`/`match`, operands (name, bit range, kind, register class), category, `exec_type`, the source `behavior:` string, and `latency`. |
-| `<isa>_decode.h` | `Op decode(word)` (most-specific match first), `get_bits()` / `sext()`, and `decode_imm(Op, word)` that reassembles split and signed immediates. |
+| `<isa>_decode.h` | `Op decode(word)` (most-specific match first), `get_bits()` / `sext()`, and `decode_imm(Op, word)` that reassembles split and signed immediates. Words wider than 64 bits use a little-endian byte-array `Word` plus a `get_bits_wide()` accessor for fields that don't fit in 64 bits (see below). |
 | `<isa>_model.h` | umbrella header - includes the three above. |
 | `example_main.cpp`, `INTEGRATE.md` | a usage sketch and step-by-step adoption notes. |
 
@@ -41,6 +41,25 @@ model** instead of hand-maintaining a parallel copy.
 It **is not** a simulator. The `behavior:` string is carried verbatim as a *reference* (it is not
 executable) - you write the compute in your own model. For an executable model, generate
 [`-t qemu`](../qemu/README.md) instead.
+
+This is also **the decoder/disassembler** for the project: `decode()` + `info()` + `decode_imm()`
+identify an instruction and recover its operands from raw bytes. There is intentionally no separate
+LLVM `MCDisassembler` generated - the LLVM target generates the *assembler/encoder* side (MC code
+emitter, fixups), and this header is the decode side, compile-tested as part of the suite.
+
+## Decoding any instruction width
+
+For instruction words up to 64 bits the `Word` is a plain `uint64_t`. For wider encodings (up to the
+512-bit cap - accelerator ISAs like a 320-bit NPU word) the `Word` is a little-endian
+`std::array<uint8_t, N>` and:
+
+- `get_bits(word, start, width)` reads up to **64 bits** of a field (the common case: opcodes,
+  register indices, immediates).
+- `get_bits_wide(word, start, width, out)` reads a field of **any width** into a little-endian byte
+  buffer - for a field that doesn't fit in 64 bits, such as a structured operand. Its sub-fields,
+  each ≤ 64 bits, are still read with `get_bits`.
+- `decode()` matches fixed fields (opcode/constant/reserved) in ≤ 64-bit chunks, so every bit of a
+  field wider than 64 bits is checked - a wide reserved or constant field is never truncated.
 
 ## Custom element types
 

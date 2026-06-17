@@ -21,6 +21,7 @@ FIXTURES = pathlib.Path(__file__).resolve().parent / "fixtures"
 PICO32 = EXAMPLES / "tutorial/pico32-part4/isa.yaml"
 PICO32F = EXAMPLES / "tutorial/pico32-part4/fp/isa.yaml"
 CMPISA = FIXTURES / "cmpisa.yaml"
+WIDE = EXAMPLES / "wide-probe/isa.yaml"  # 128-bit words: APInt encode + APInt fixups
 
 
 def _gen(isa_yaml: pathlib.Path, out: pathlib.Path, strict: bool = True) -> pathlib.Path:
@@ -182,3 +183,46 @@ def test_strict_raises_on_missing_required_role(tmp_path):
     del isa_reg.instructions[bne_key]
     with pytest.raises(ValueError, match="branch.ne"):
         generate_llvm(reg, str(tmp_path), strict=True)
+
+
+# ── Wide (>64-bit) instruction encodings on the MC side ──────────────────────
+
+def _mc(tgt: pathlib.Path, base: str) -> str:
+    return (tgt / "MCTargetDesc" / f"{tgt.name}{base}").read_text()
+
+
+def test_llvm_wide_operand_value_is_uint64(tmp_path):
+    # A >64-bit word can carry a field wider than 32 bits, so getMachineOpValue
+    # must not truncate MO.getImm() to unsigned.
+    tgt = _gen(WIDE, tmp_path, strict=False)
+    mce = _mc(tgt, "MCCodeEmitter.cpp")
+    assert "uint64_t getMachineOpValue(" in mce
+    assert "return static_cast<uint64_t>(MO.getImm());" in mce
+
+
+def test_llvm_wide_fixup_uses_apint(tmp_path):
+    # The WADD immediate sits at bits 72..103 (beyond a uint64 word). The fixup must
+    # use APInt.insertBits, not a `<< 72` shift on a uint64_t (undefined behavior).
+    tgt = _gen(WIDE, tmp_path, strict=False)
+    ab = _mc(tgt, "AsmBackend.cpp")
+    assert '#include "llvm/ADT/APInt.h"' in ab
+    assert "Insn.insertBits(APInt(32, static_cast<uint64_t>(Lo)), 72);" in ab
+    assert "<< 72" not in ab  # no undefined-behavior shift on the 64-bit path
+
+
+def test_llvm_wide_fixup_identifiers_are_valid_c(tmp_path):
+    # isa name "wide-probe" must not leak a hyphen into the fixup enum constants.
+    tgt = _gen(WIDE, tmp_path, strict=False)
+    fk = _mc(tgt, "FixupKinds.h")
+    assert "fixup_wide_probe_lo12_i" in fk
+    assert "fixup_wide-probe" not in fk
+
+
+def test_llvm_narrow_operand_value_unchanged(tmp_path):
+    # Regression: a <=64-bit ISA keeps the unsigned operand path and memcpy fixup.
+    tgt = _gen(PICO32, tmp_path)
+    mce = _mc(tgt, "MCCodeEmitter.cpp")
+    assert "unsigned getMachineOpValue(" in mce
+    assert "return static_cast<unsigned>(MO.getImm());" in mce
+    ab = _mc(tgt, "AsmBackend.cpp")
+    assert "APInt" not in ab and "memcpy(&Insn" in ab

@@ -84,6 +84,67 @@ def compute_fixed_fields(instr: "Instruction", schema: "Schema",
     return out
 
 
+def compute_decode_fields(instr: "Instruction", schema: "Schema",
+                          isa_reg: "ISARegistry") -> dict:
+    """Per-instruction decode metadata shared by the byte-array decoders (cpp-isa,
+    and QEMU's >64-bit path). Returns:
+
+    - ``fixed``: ``[{start, width, val}]`` — the opcode/constant/reserved bits to
+      match (from :func:`compute_fixed_fields`).
+    - ``operands``: ``[{name, kind, start, width, signed, rc}]`` — register
+      (``kind="Reg"``) and immediate (``kind="Imm"``) fields, in schema order.
+    - ``imm``: the immediate reconstruction (``None`` if no immediate). Either a
+      single field ``{combined: False, width, signed, start}`` or a split layout
+      ``{combined: True, width, signed: True, parts: [{hw_low, hw_width, imm_low}]}``.
+
+    The single source of truth so the assembler, cpp-isa, and QEMU agree bit-for-bit.
+    """
+    # Lazy import: this lives in compiler/, and generators/ already imports
+    # compiler.utils — importing it at module scope would be circular.
+    from ..generators.llvm import _get_schema_combined_imm
+
+    reg_classes = {r.name for r in isa_reg.registers}
+
+    # Fixed-field match conditions. A field wider than 64 bits is split into <=64-bit
+    # chunks so the byte-array decoders (whose get_bits returns uint64_t) check every
+    # bit — without this a >64-bit reserved/constant field would be matched with a
+    # truncated value, silently ignoring bits >= 64. <=64-bit fields pass through
+    # unchanged (one chunk == the whole field), so narrow ISAs are byte-identical.
+    fixed = []
+    for f, val in compute_fixed_fields(instr, schema, isa_reg):
+        off = 0
+        while off < f.width:
+            w = min(64, f.width - off)
+            fixed.append({"start": f.start + off, "width": w,
+                          "val": (val >> off) & ((1 << w) - 1)})
+            off += w
+
+    operands: list[dict] = []
+    for f in schema.spec.fields:
+        if f.role == FieldRole.REGISTER:
+            operands.append({"name": f.name, "kind": "Reg", "start": f.start,
+                             "width": f.width, "signed": False,
+                             "rc": f.type if f.type in reg_classes else "none"})
+        elif f.role == FieldRole.IMMEDIATE:
+            operands.append({"name": f.name, "kind": "Imm", "start": f.start,
+                             "width": f.width, "signed": f.is_signed, "rc": "none"})
+
+    cimm = _get_schema_combined_imm(schema)
+    imm = None
+    if cimm:
+        parts = [{"hw_low": hw_low, "hw_width": hw_high - hw_low + 1, "imm_low": imm_low}
+                 for (hw_high, hw_low, imm_high, imm_low) in cimm["hw_assignments"]]
+        imm = {"combined": True, "width": cimm["width"], "signed": True, "parts": parts}
+    else:
+        imm_fields = [f for f in schema.spec.fields if f.role == FieldRole.IMMEDIATE]
+        if imm_fields:
+            f = imm_fields[0]
+            imm = {"combined": False, "width": f.width, "signed": f.is_signed,
+                   "start": f.start}
+
+    return {"fixed": fixed, "operands": operands, "imm": imm}
+
+
 def sanitize_ident(name: str) -> str:
     """Turn an arbitrary name into a valid C/C++/Rust identifier."""
     s = _re.sub(r"[^A-Za-z0-9_]", "_", name)

@@ -41,7 +41,7 @@ def _enc_{{ instr.name }}({{ instr.param_list }}):
     word |= ((_imm >> {{ sf.low }}) & 0x{{ "%x" | format(sf.mask) }}) << {{ sf.start }}  # {{ sf.name }}[{{ sf.high }}:{{ sf.low }}]
 {%     endfor %}
 {%   endif %}
-    return struct.pack("<I", word)
+    return {% if instr.bytes == 4 %}struct.pack("<I", word){% else %}word.to_bytes({{ instr.bytes }}, "little"){% endif %}
 
 {% endfor %}
 # ── Dispatch table ─────────────────────────────────────────────────────────────

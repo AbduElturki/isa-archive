@@ -8,7 +8,13 @@ from ...compiler.loader import Registry
 from ...compiler.utils import compute_insn_width
 from ..base import prepare_output_dir, write_generated, make_renderer, CLANG_FORMAT_QEMU
 from .word import _guest_word, _regfile_storage, _float_scalar_types
-from .semantics import _make_qemu_env, _validate_for_qemu
+from .semantics import _make_qemu_env, _validate_for_qemu, _build_wide_decode_meta
+
+# Instruction words up to this many bits. <=64-bit ISAs decode via QEMU's
+# decodetree; wider ones (up to this cap) use a hand-written byte-array decoder.
+_QEMU_MAX_INSN_BITS = 512
+_QEMU_WIDTH_HINT = ("The QEMU backend decodes instruction words up to "
+                    f"{_QEMU_MAX_INSN_BITS} bits; wider encodings are not supported.")
 
 logger = logging.getLogger("isa_archive.generators")
 
@@ -18,8 +24,9 @@ def _write_isa_files(env, isa_reg, out_path: pathlib.Path, clang_format: bool = 
     _validate_for_qemu(isa_reg)
     xlen = isa_reg.xlen
     word = _guest_word(isa_reg)
-    _w = compute_insn_width(isa_reg, isa_reg.name, max_bits=64,  # QEMU fetch ≤ 64-bit word
-                            limit_hint=("The QEMU backend fetches one instruction word per translation step and decodetree patterns cap at 64 bits; wider encodings are currently LLVM-only (see the generality plan, G3)."))
+    _w = compute_insn_width(isa_reg, isa_reg.name, max_bits=_QEMU_MAX_INSN_BITS,
+                            limit_hint=_QEMU_WIDTH_HINT)
+    wide = _w["insn_bits"] > 64  # >64-bit words: byte-array fetch + hand-written decoder
     float_types = _float_scalar_types(isa_reg)
     has_mem = any("mem" in i.spec.behavior for i in isa_reg.instructions.values())
     has_sext = any("sext" in i.spec.behavior for i in isa_reg.instructions.values())
@@ -32,13 +39,20 @@ def _write_isa_files(env, isa_reg, out_path: pathlib.Path, clang_format: bool = 
                tcg_bits=word["tcg_bits"], xlen_mask=word["xlen_mask"],
                page_bits=word["page_bits"], addr_bits=word["addr_bits"],
                insn_bits=_w["insn_bits"], insn_bytes=_w["insn_bytes"],
+               wide=wide, wide_instrs=(_build_wide_decode_meta(isa_reg) if wide else None),
                reg_storage=_regfile_storage(isa_reg),
                float_scalar_types=float_types, c_includes=c_includes,
                has_mem=has_mem, has_float=bool(float_types), has_sext=has_sext)
 
     render = make_renderer(env, ctx, clang_format=clang_format)
     name = isa_reg.name
-    render("qemu/qemu_decode.decode.j2", out_path / f"{name}.decode")
+    if wide:
+        # decodetree caps at 64 bits — hand-write decode-<isa>.c.inc, the file
+        # <isa>_translate.c already #includes. (decodetree would produce it for
+        # narrow ISAs at build time.)
+        render("qemu/qemu_wide_decode.c.inc.j2", out_path / f"decode-{name}.c.inc")
+    else:
+        render("qemu/qemu_decode.decode.j2", out_path / f"{name}.decode")
     render("qemu/qemu_helpers.c.j2",     out_path / f"{name}_helpers.c")
     render("qemu/qemu_helper.h.j2",      out_path / f"{name}_helper.h")
     render("qemu/qemu_trans.c.inc.j2",   out_path / f"{name}_trans.c.inc")
@@ -107,8 +121,8 @@ def generate_qemu(registry: Registry, output_dir: str, clang_format: bool = Fals
         # alias — never invent one positionally (accelerator ISAs have no stack).
         sp_reg_idx = first_reg.aliases.get("sp") if first_reg else None
         sp_reg_file = first_reg.name if first_reg else None
-        _w = compute_insn_width(isa_reg, isa_reg.name, max_bits=64,
-                                limit_hint=("The QEMU backend fetches one instruction word per translation step and decodetree patterns cap at 64 bits; wider encodings are currently LLVM-only (see the generality plan, G3)."))
+        _w = compute_insn_width(isa_reg, isa_reg.name, max_bits=_QEMU_MAX_INSN_BITS,
+                                limit_hint=_QEMU_WIDTH_HINT)
         ctx = dict(instructions=isa_reg.instructions, isa_reg=isa_reg, isa_name=isa_reg.name,
                    xlen=xlen, tcg_type=word["tcg_type"], c_int_type=word["c_int_type"],
                    tcg_bits=word["tcg_bits"], xlen_mask=word["xlen_mask"],
@@ -116,6 +130,7 @@ def generate_qemu(registry: Registry, output_dir: str, clang_format: bool = Fals
                    machine=machine,
                    sp_reg_idx=sp_reg_idx, sp_reg_file=sp_reg_file,
                    insn_bits=_w["insn_bits"], insn_bytes=_w["insn_bytes"],
+                   wide=_w["insn_bits"] > 64,
                    reg_storage=_regfile_storage(isa_reg),
                    byte_order=getattr(isa_reg.manifest.spec, "byte_order", "little"),
                    float_scalar_types=_float_scalar_types(isa_reg))

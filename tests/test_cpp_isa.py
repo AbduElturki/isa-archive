@@ -11,6 +11,7 @@ from isa_archive.generators.cpp_isa import generate_cpp_isa
 EX = pathlib.Path(__file__).resolve().parent.parent / "examples"
 PICO32 = EX / "tutorial/pico32-part4/isa.yaml"
 PICO32_UARCH = EX / "tutorial/pico32-part4/uarch.yaml"
+WIDE = EX / "wide-probe/isa.yaml"  # 128-bit words: exercises the >64-bit decode path
 CXX = shutil.which("c++") or shutil.which("clang++") or shutil.which("g++")
 
 
@@ -21,6 +22,13 @@ def _gen(tmp_path, with_uarch=False):
         load_uarch(str(PICO32_UARCH), reg)
     generate_cpp_isa(reg, str(tmp_path))
     return tmp_path / "pico32"
+
+
+def _gen_wide(tmp_path):
+    reg = Registry()
+    load_isa(str(WIDE), reg)
+    generate_cpp_isa(reg, str(tmp_path))
+    return tmp_path / "wide_probe"
 
 
 def test_cpp_isa_creates_headers(tmp_path):
@@ -84,6 +92,52 @@ def test_cpp_isa_decode_is_correct(tmp_path):
         "return decode(0x33) == Op::ADD ? 0 : 1; }\n"
     )
     exe = tmp_path / "drv"
+    c = subprocess.run([CXX, "-std=c++17", str(drv), "-o", str(exe)],
+                       capture_output=True, text=True)
+    assert c.returncode == 0, c.stderr
+    assert subprocess.run([str(exe)]).returncode == 0
+
+
+# ── Wide (>64-bit) instruction words ────────────────────────────────────────────
+
+def test_cpp_isa_wide_uses_byte_array_word(tmp_path):
+    out = _gen_wide(tmp_path)
+    decode = (out / "wide_probe_decode.h").read_text()
+    info = (out / "wide_probe_info.h").read_text()
+    # Word is a 16-byte array, get_bits reads it, decode takes the array.
+    assert "using Word = std::array<uint8_t, 16>;" in decode
+    assert "get_bits(const Word &word" in decode
+    assert "Op decode(const Word &word)" in decode
+    # The 64-bit mask/match fields are dropped for wide ISAs.
+    assert "uint64_t mask;" not in info and "uint64_t match;" not in info
+
+
+def test_cpp_isa_wide_decodes_fields_beyond_bit_64(tmp_path):
+    # The tag that distinguishes WADD/WSUB lives at bit 64 — only a wide decode
+    # path can reach it. Confirm both fixed-field checks are emitted.
+    decode = (_gen_wide(tmp_path) / "wide_probe_decode.h").read_text()
+    assert "get_bits(word, 64, 8) == 1ull" in decode  # TAG.ADD → WADD
+    assert "get_bits(word, 64, 8) == 2ull" in decode  # TAG.SUB → WSUB
+
+
+@pytest.mark.skipif(CXX is None, reason="no C++ compiler")
+def test_cpp_isa_wide_decode_is_correct(tmp_path):
+    out = _gen_wide(tmp_path)
+    drv = tmp_path / "wdrv.cpp"
+    # Build two 128-bit words by hand: opcode=1 at bit 0, tag at bit 64,
+    # imm at bit 72. WADD has tag 1, WSUB has tag 2.
+    drv.write_text(
+        f'#include "{out / "wide_probe_model.h"}"\n'
+        "int main() { using namespace wide_probe;\n"
+        "  Word add{}; add[0] = 1; add[8] = 1; add[9] = 5;\n"   # opcode, tag=ADD, imm low byte
+        "  Word sub{}; sub[0] = 1; sub[8] = 2; sub[9] = 7;\n"   # opcode, tag=SUB, imm low byte
+        "  if (decode(add) != Op::WADD) return 1;\n"
+        "  if (decode(sub) != Op::WSUB) return 2;\n"
+        "  if (decode_imm(Op::WADD, add) != 5) return 3;\n"
+        "  if (decode_imm(Op::WSUB, sub) != 7) return 4;\n"
+        "  return 0; }\n"
+    )
+    exe = tmp_path / "wdrv"
     c = subprocess.run([CXX, "-std=c++17", str(drv), "-o", str(exe)],
                        capture_output=True, text=True)
     assert c.returncode == 0, c.stderr

@@ -44,11 +44,22 @@ static void {{ isa_name | lower | replace("-", "_") }}_tr_insn_start(DisasContex
 static void {{ isa_name | lower | replace("-", "_") }}_tr_translate_insn(DisasContextBase *dcbase, CPUState *cpu) {
     DisasContext *ctx = container_of(dcbase, DisasContext, base);
     CPUArchState *env = cpu_env(cpu);
+{%- if wide %}
+    /* Fetch the {{ insn_bits }}-bit instruction word as a little-endian byte array
+       (wider than any single load; decode reads its fields with get_bits). */
+    uint8_t insn[{{ insn_bytes }}];
+    for (int _i = 0; _i < {{ insn_bytes }}; _i++) {
+        insn[_i] = translator_ldub(env, &ctx->base, ctx->base.pc_next + _i);
+    }
+    ctx->base.pc_next += {{ insn_bytes }};
+    if (!decode(ctx, insn)) {
+{%- else %}
     /* Fetch one {{ insn_bits }}-bit instruction word (encoding width, not data width). */
     {{ "uint32_t" if insn_bits <= 32 else "uint64_t" }} insn =
         translator_ld{{ "uw" if insn_bits <= 16 else ("l" if insn_bits <= 32 else "q") }}(env, &ctx->base, ctx->base.pc_next);
     ctx->base.pc_next += {{ insn_bytes }};
     if (!decode(ctx, insn)) {
+{%- endif %}
         qemu_log_mask(LOG_GUEST_ERROR, "{{ isa_name }}: illegal instruction at PC " TARGET_FMT_lx "\n",
                       ctx->base.pc_next - {{ insn_bytes }});
         gen_exception_illegal(ctx);

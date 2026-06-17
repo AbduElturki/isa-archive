@@ -7,11 +7,10 @@ import logging
 import pathlib
 
 from ..compiler.loader import Registry
-from ..compiler.utils import compute_insn_width, compute_fixed_fields, sanitize_ident as _ident
+from ..compiler.utils import compute_insn_width, compute_decode_fields, sanitize_ident as _ident
 from ..models.enums import FieldRole
 from ..models.scalar_types import of_register
 from .base import make_jinja_env, prepare_output_dir, write_generated, make_renderer, CLANG_FORMAT_LLVM
-from .llvm import _get_schema_combined_imm
 
 logger = logging.getLogger("isa_archive.generators")
 
@@ -32,38 +31,19 @@ def _instr_info(instr, isa_reg, latencies: dict[str, int]) -> dict:
     """Build the descriptive record for one instruction."""
     name = instr.metadata.name
     schema = isa_reg.schemas[instr.spec.schema_name]
-    reg_classes = {r.name for r in isa_reg.registers}
 
+    # fixed fields (for wide-word decode), register/immediate operands, and the
+    # immediate-reconstruction layout — shared with the QEMU >64-bit decoder.
+    df = compute_decode_fields(instr, schema, isa_reg)
+    fixed, operands, imm = df["fixed"], df["operands"], df["imm"]
+
+    # mask/match for the narrow (<=64-bit) uint64 decode path.
     mask = 0
     match = 0
-    for f, val in compute_fixed_fields(instr, schema, isa_reg):
-        field_mask = ((1 << f.width) - 1) << f.start
+    for f in fixed:
+        field_mask = ((1 << f["width"]) - 1) << f["start"]
         mask |= field_mask
-        match |= (val << f.start) & field_mask
-
-    operands: list[dict] = []
-    for f in schema.spec.fields:
-        if f.role == FieldRole.REGISTER:
-            operands.append({"name": f.name, "kind": "Reg", "start": f.start,
-                             "width": f.width, "signed": False,
-                             "rc": f.type if f.type in reg_classes else "none"})
-        elif f.role == FieldRole.IMMEDIATE:
-            operands.append({"name": f.name, "kind": "Imm", "start": f.start,
-                             "width": f.width, "signed": f.is_signed, "rc": "none"})
-
-    # Immediate reconstruction (single field, or split via the imm_<hi>_<lo> layout).
-    cimm = _get_schema_combined_imm(schema)
-    imm = None
-    if cimm:
-        parts = [{"hw_low": hw_low, "hw_width": hw_high - hw_low + 1, "imm_low": imm_low}
-                 for (hw_high, hw_low, imm_high, imm_low) in cimm["hw_assignments"]]
-        imm = {"combined": True, "width": cimm["width"], "signed": True, "parts": parts}
-    else:
-        imm_fields = [f for f in schema.spec.fields if f.role == FieldRole.IMMEDIATE]
-        if imm_fields:
-            f = imm_fields[0]
-            imm = {"combined": False, "width": f.width, "signed": f.is_signed,
-                   "start": f.start}
+        match |= (f["val"] << f["start"]) & field_mask
 
     opcode_val = 0
     for f in schema.spec.fields:
@@ -89,6 +69,7 @@ def _instr_info(instr, isa_reg, latencies: dict[str, int]) -> dict:
         "operands": operands,
         "asm_format": f"{name.lower()} {asm_ops}".rstrip(),
         "imm": imm,
+        "fixed": fixed,
     }
 
 
@@ -103,10 +84,9 @@ def generate_cpp_isa(registry: Registry, output_dir: str, clang_format: bool = F
         guard = _ident(isa_name).upper()
 
         try:
-            insn = compute_insn_width(isa_reg, isa_name, max_bits=64,
-                                      limit_hint=("The C++ model decodes one instruction word "
-                                                  "into a uint64_t; encodings wider than 64 bits "
-                                                  "are not supported by this target yet."))
+            insn = compute_insn_width(isa_reg, isa_name, max_bits=512,
+                                      limit_hint=("The C++ model decodes instruction words up to "
+                                                  "512 bits."))
         except ValueError as e:
             logger.warning("%s: skipping C++ model — %s", isa_name, e)
             continue
@@ -148,6 +128,7 @@ def generate_cpp_isa(registry: Registry, output_dir: str, clang_format: bool = F
 
         ctx = dict(isa_name=isa_name, ns=ns, guard=guard,
                    insn_bits=insn["insn_bits"], insn_bytes=insn["insn_bytes"],
+                   wide=insn["insn_bits"] > 64,   # >64-bit words use a byte-array Word
                    instrs=instrs, decode_order=decode_order, categories=categories,
                    reg_classes=reg_classes, has_uarch=bool(latencies),
                    elem_includes=elem_includes, elem_types=elem_types)

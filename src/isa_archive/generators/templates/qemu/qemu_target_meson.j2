@@ -5,7 +5,9 @@
   '{{ isa_name }}_helpers.c',
   '{{ isa_name }}_translate.c',
 ))
+{%- if not wide %}
 {{ isa_name }}_ss.add(decodetree.process('{{ isa_name }}.decode',
   extra_args: ['--static-decode=decode', '--insnwidth', '{{ insn_bits }}']))
+{%- endif %}
 target_arch += {'{{ isa_name }}': {{ isa_name }}_ss}
 target_system_arch += {'{{ isa_name }}': ss.source_set()}

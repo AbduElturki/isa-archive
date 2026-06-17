@@ -9,16 +9,16 @@ namespace llvm {
 {% set ns = namespace(n=0) %}
 enum {{ ISA }}FixupKind {
 {% if jal_fixup_info %}
-  fixup_{{ isa_name }}_jal     = FirstTargetFixupKind + {{ ns.n }}, // J-type PC-relative
+  fixup_{{ fixup_ns }}_jal     = FirstTargetFixupKind + {{ ns.n }}, // J-type PC-relative
 {% set ns.n = ns.n + 1 %}
 {% endif %}
 {% if branch_fixup_info %}
-  fixup_{{ isa_name }}_branch  = FirstTargetFixupKind + {{ ns.n }}, // B-type PC-relative
+  fixup_{{ fixup_ns }}_branch  = FirstTargetFixupKind + {{ ns.n }}, // B-type PC-relative
 {% set ns.n = ns.n + 1 %}
 {% endif %}
-  fixup_{{ isa_name }}_hi20    = FirstTargetFixupKind + {{ ns.n }}, // U-type: upper 20-bit absolute ({{ lui_opcode }})
+  fixup_{{ fixup_ns }}_hi20    = FirstTargetFixupKind + {{ ns.n }}, // U-type: upper 20-bit absolute ({{ lui_opcode }})
 {% set ns.n = ns.n + 1 %}
-  fixup_{{ isa_name }}_lo12_i  = FirstTargetFixupKind + {{ ns.n }}, // I-type: lower 12-bit absolute ({{ addi_opcode }})
+  fixup_{{ fixup_ns }}_lo12_i  = FirstTargetFixupKind + {{ ns.n }}, // I-type: lower 12-bit absolute ({{ addi_opcode }})
 };
 
 } // namespace llvm
