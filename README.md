@@ -52,6 +52,21 @@ flowchart LR
 
 ---
 
+## 👤 Who it's for
+
+ISA-Archive scales from one person to a whole silicon org - the value just shifts from *doing the
+work of a team* to *keeping every team in sync*.
+
+| Audience | What you get |
+|---|---|
+| **Solo researcher / engineer** | One YAML file → a runnable QEMU sim, a `clang` that compiles C, an FPGA-bound RTL skeleton, and a manual - none hand-written. Change an encoding, regenerate, re-run the benchmark. |
+| **Small team / startup** | A real bring-up toolchain *before* you have a compiler or DV team: QEMU as golden model, an assembler that boots silicon, an always-current manual for onboarding. |
+| **Established silicon org** | The **single source of truth**: architecture owns the YAML; sim, compiler, RTL, and docs are *derived*, so teams can't drift. The [`Project`](docs/yaml/project.md) manifest makes it governed - per-output policies, one `build` for CI, `--strict` as a coverage gate. |
+| **Teams with existing models** | Adopt slices, not the whole pipeline: the [`cpp-isa`](docs/yaml/types.md) headers drop one decode definition into an existing C++ performance/cycle model; C/Rust intrinsics give firmware typed wrappers. |
+| **Educators & learners** | The [tutorial](examples/tutorial/README.md) builds a working 32-bit CPU from an empty directory - from "what's an opcode" to "compile and run C on your own ISA". |
+
+---
+
 ## 📦 Install
 
 ISA-Archive uses [uv](https://github.com/astral-sh/uv) and requires Python ≥ 3.12.
@@ -152,21 +167,6 @@ duplicate instruction encodings (decoder collisions), undeclared behavior variab
 keys, and immediate-width mismatches. The LLVM backend also emits a **compiler-coverage report**
 and, with `--strict`, fails if a target profile (`c-baremetal`, `kernel-only`, …) is missing a
 role it requires.
-
----
-
-## 👤 Who it's for
-
-ISA-Archive scales from one person to a whole silicon org - the value just shifts from *doing the
-work of a team* to *keeping every team in sync*.
-
-| Audience | What you get |
-|---|---|
-| **Solo researcher / engineer** | One YAML file → a runnable QEMU sim, a `clang` that compiles C, an FPGA-bound RTL skeleton, and a manual - none hand-written. Change an encoding, regenerate, re-run the benchmark. |
-| **Small team / startup** | A real bring-up toolchain *before* you have a compiler or DV team: QEMU as golden model, an assembler that boots silicon, an always-current manual for onboarding. |
-| **Established silicon org** | The **single source of truth**: architecture owns the YAML; sim, compiler, RTL, and docs are *derived*, so teams can't drift. The [`Project`](docs/yaml/project.md) manifest makes it governed - per-output policies, one `build` for CI, `--strict` as a coverage gate. |
-| **Teams with existing models** | Adopt slices, not the whole pipeline: the [`cpp-isa`](docs/yaml/types.md) headers drop one decode definition into an existing C++ performance/cycle model; C/Rust intrinsics give firmware typed wrappers. |
-| **Educators & learners** | The [tutorial](examples/tutorial/README.md) builds a working 32-bit CPU from an empty directory - from "what's an opcode" to "compile and run C on your own ISA". |
 
 ---
 
