@@ -1,6 +1,6 @@
 <div align="center">
 
-# ISA-Archive
+<img src="banner.png" alt="ISA-Archive" width="100%">
 
 **Define a processor's instruction set once in YAML - generate its entire toolchain from that single source.**
 
@@ -28,23 +28,11 @@ writing each instruction's encoding and a one-line behavior. From that one descr
 One YAML edit regenerates all of them, so your simulator, compiler, hardware model, and docs can
 never drift apart.
 
-```mermaid
-flowchart LR
-    subgraph SRC["Single source of truth"]
-        Y["ISA manifests (YAML)<br/>Schema · Instruction · Operand<br/>Constant · Enum · uArch"]
-    end
+<div align="center">
 
-    Y --> L["Loader + validation<br/><i>encoding collisions, field widths,<br/>behavior typecheck</i>"]
-    L --> IR["In-memory ISA model"]
+<img src="chart_target.png" alt="One ISA manifest is loaded and validated into an in-memory model, then lowered to QEMU, LLVM, an assembler, SystemVerilog, C/Rust intrinsics, C++ ISA headers, and reference manuals." width="100%">
 
-    IR --> QEMU["QEMU emulator<br/><i>decodetree · TCG · board</i>"]
-    IR --> LLVM["LLVM backend<br/><i>clang / llc / mc</i>"]
-    IR --> ASM["Assembler + linker script"]
-    IR --> SV["SystemVerilog RTL"]
-    IR --> INTR["C / Rust intrinsics"]
-    IR --> CPP["C++ ISA headers"]
-    IR --> DOCS["Markdown / HTML / PDF manual"]
-```
+</div>
 
 > **Proven end to end.** The bundled `pico32` tutorial ISA is built from an empty directory; its
 > generated `clang` compiles `fib.c`, and the resulting binary runs on its generated
