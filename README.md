@@ -290,6 +290,33 @@ uv run pytest tests/test_cpp_isa.py -q
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) to get started.
 
+## ⚠️ Current limitations
+
+ISA-Archive is **alpha (0.1.0)** - the manifest schema, CLI, and generated output may change
+between versions. The honest boundaries today:
+
+- **A working C compiler is ISA-dependent.** The LLVM backend needs the ABI roles a target profile
+  requires; ISAs missing them - or missing ops like multiply, shifts, or bitwise - get the QEMU
+  simulator and the assembler, not a full `clang`. Stack and accumulator machines don't fit LLVM's
+  register-allocation model. Accelerators use `profile: kernel-only` (no compiler expected). The
+  `--strict` coverage report tells you exactly what's missing.
+- **Generation-verified, not all build-verified.** The pico32 tutorial is validated end to end
+  against real QEMU and LLVM builds; the wider generated output is checked at the source level by
+  the test suite, but a full QEMU/LLVM build is not run for every target.
+- **Encoding widths.** Instruction words up to **512 bits**, one uniform width per ISA; an
+  individual field is read as a value up to 64 bits. Data width (`xlen`) is a power of two from 8 to
+  128.
+- **Register model is static.** Fixed-shape vector/tile register files; no runtime- or
+  scalable-length (VLA / SVE / RVV-style) shapes, register pairs, sub-register aliasing, or banking.
+- **QEMU scope.** Software traps only (no hardware-interrupt delivery); CSR and trap behaviors are
+  simulator-side. Wide (>64-bit) instruction fetch assumes a little-endian word.
+- **Decode/encode live in the C++ headers.** There is no separate LLVM `MCDisassembler`; the
+  [`cpp-isa`](docs/targets/cpp-isa.md) target is the standalone, compile-tested decode + encode side.
+
+Per-area boundaries are documented in each guide under **Current boundaries**
+([compiler](docs/compiler/README.md), [QEMU](docs/qemu/README.md),
+[registers](docs/yaml/registers.md)).
+
 ## ⚖️ License
 
 - **Tool source:** GNU GPLv3 (see [LICENSE](LICENSE)).
