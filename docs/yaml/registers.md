@@ -108,21 +108,20 @@ Three real configurations to crib from:
 - { name: preg, width: 1,   count: 8 }
 ```
 
-## Planned work
+## Current boundaries
 
-The register model is being extended incrementally. What's supported today: scalar
-files with ABI aliases and a hardwired-zero register; custom element types; fixed-shape
-vectors and tiles with element indexing; per-register attributes; and - on the compiler
-side - 1-D vector register classes with element-wise and contiguous load/store lowering.
+What works today: scalar files with ABI aliases and a hardwired-zero register; custom
+element types; fixed-shape vectors and tiles with element indexing; per-register
+attributes; and - on the compiler side - 1-D vector register classes with element-wise
+and contiguous load/store lowering.
 
-Not yet supported, roughly in priority order:
+Not supported today:
 
 - **Fuller vector instruction selection.** Reductions, shuffles, lane insert/extract,
-  masked/predicated operations, and scalar broadcast (splat). These need additional
-  LLVM legalization and are best landed against a real LLVM build.
+  masked/predicated operations, and scalar broadcast (splat) don't lower to vector
+  patterns.
 - **Float arithmetic on exotic-element vectors/tiles.** `f32`/`f64` element arithmetic
-  works; sub-byte and 8-bit floats (e.g. `fp8`) need a softfloat path before they can be
-  operated on (today they store and move only).
+  works; sub-byte and 8-bit floats (e.g. `fp8`) store and move only.
 - **Dynamic / scalable shape.** Shape is fixed at definition. Vector-length-agnostic
   files (SVE/RVV-style) and runtime tile dimensions are not expressible.
 - **Register pairs and overlapping views.** Linked register pairs (a wide value spanning
@@ -133,6 +132,6 @@ Not yet supported, roughly in priority order:
   "even registers only" or a caller-saved subset can't be declared.
 - **Vectors in the ABI and intrinsics.** There is no vector calling convention (vector
   argument/return registers), and the C/Rust intrinsics skip vector/tile files.
-- **Tooling.** The generated reference manual has no register-file table yet, and there
+- **Tooling.** The generated reference manual has no register-file table, and there
   is no special-register support beyond the hardwired-zero register (read-only registers,
   hardwired constants, reset values).

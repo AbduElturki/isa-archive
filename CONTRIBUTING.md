@@ -1,86 +1,82 @@
 # Contributing to ISA-Archive
 
-Welcome to **ISA-Archive**! This project is a single-source-of-truth generator for processor architectures. Whether you are a human developer or an AI agent, please follow these guidelines to ensure the codebase remains robust and logically sound.
+Welcome to **ISA-Archive**! This project is a single-source-of-truth generator for processor
+architectures. Please follow these guidelines so the codebase stays robust and logically sound.
 
-## 🤖 Instructions for AI Agents (LLMs)
+> **New to the internals?** Start with the [developer docs](docs/development/README.md):
+> the [architecture](docs/development/architecture.md) (how it's built) and
+> [extending the tool](docs/development/extending.md) (how to add a target, manifest kind,
+> behavior-DSL construct, or backend).
 
-If you are an autonomous agent modifying this repository, you **must** adhere to the following mandates:
+## 🧭 Core principles
 
-1.  **Never Hardcode Register Names:** Registers like `rd`, `rs1`, or `rs2` are not fixed. Always resolve them via the `ISARegistry` and the `register_map` built from YAML.
-2.  **Use the behavior IR:** All instruction semantics must be defined in the `behavior:` YAML field. Implementation logic is derived by analyzing that one definition (`BehaviorIR` in `src/isa_archive/compiler/behavior.py`) and lowering it per target with the language backends in `src/isa_archive/compiler/backends/` (QEMU C/TCG, LLVM SelectionDAG, Verilog, Rust) — never hand-write per-target semantics.
-3.  **Strict Bit-Width Validation:** Before emitting any code, `BehaviorIR` must validate that bit-widths match (e.g., assigning a 64-bit struct to a 32-bit register must throw an error).
-4.  **Schema-Driven:** Never assume an instruction format. Always look up the referenced `Schema` to identify which fields are opcodes vs. operands.
-5.  **Test Driven:** If you add a feature or fix a bug, you **must** add or update a test in the `tests/` directory.
+Every change should hold these - they're what keeps the generators consistent:
 
----
+1. **Never hardcode register names.** `rd`, `rs1`, `rs2`, `sp`, … are not fixed - always resolve
+   them via the `ISARegistry` and the `register_map` built from YAML.
+2. **Use the behavior IR.** All instruction semantics live in the `behavior:` YAML field.
+   Per-target output is *derived* by analyzing that one definition (`BehaviorIR` in
+   `src/isa_archive/compiler/behavior.py`) and lowering it with the language backends in
+   `src/isa_archive/compiler/backends/` (QEMU C/TCG, SystemVerilog, Rust, LLVM SelectionDAG) -
+   never hand-write per-target semantics.
+3. **Strict bit-width validation.** `BehaviorIR` validates that widths match before any code is
+   emitted (e.g. assigning a 64-bit value to a 32-bit register is an error).
+4. **Schema-driven.** Never assume an instruction format - look up the referenced `Schema` to know
+   which fields are opcodes vs. operands.
+5. **Test driven.** Any feature or fix **must** add or update a test in `tests/`.
+6. **Keep generated output byte-stable.** A change not meant to alter output must regenerate the
+   examples byte-identically (capture a baseline, change, regenerate, `diff -rq`).
 
-## 🏗 Architecture Overview
+## 🏗 Architecture
 
-The tool follows a linear, validated flow:
-1.  **YAML Manifests:** User defines `ISA`, `uArch`, `Instruction`, `Schema`, `Operand`, `Constant`, `Enum`, and `CSR`.
-2.  **Loader (`compiler/loader.py`):** Parses YAML into Pydantic models and performs 5+ validation passes (overlaps, bounds, collisions).
-3.  **Registry:** Components are stored in hierarchical `ISARegistry` and `uArchRegistry` objects.
-4.  **Generators (`generators/`):** Generators (Verilog, QEMU, C/Rust) use the registry data to render Jinja2 templates.
-5.  **Jinja2 Templates:** Final artifacts are produced using sanitized and validated data.
+The tool is a validated pipeline: **YAML manifests → loader/models → a validated `Registry` →
+per-target generators** that lower the one `behavior:` via the language backends and render Jinja
+templates, dispatched through `generators/targets.py`. The full picture, module by module, is in
+[docs/development/architecture.md](docs/development/architecture.md).
 
----
+## 🛠 Development setup
 
-## 🛠 Development Setup
-
-This project uses [uv](https://github.com/astral-sh/uv) for package and environment management.
+This project uses [uv](https://github.com/astral-sh/uv).
 
 ```bash
-# Install dependencies
-uv sync
-
-# Run the CLI
-uv run isa-archive --help
-
-# Run tests
-uv run pytest
+uv sync                     # install dependencies
+uv run isa-archive --help   # run the CLI
+uv run pytest               # run tests
 ```
 
----
+## ✍️ Extending
 
-## ✍️ Extending the Behavioral DSL
+How to add a generation target, a manifest kind, a behavior-DSL construct, or a language backend is
+documented in [docs/development/extending.md](docs/development/extending.md). Each guide lists the
+files to touch and an existing feature to copy from.
 
-The `behavior:` field in `Instruction` manifests is analyzed by `BehaviorIR`. To add support for new logic (e.g., a new operator or control-flow construct):
+## ✅ Testing standards
 
-1.  Extend `BehaviorIR.get_width()` in `src/isa_archive/compiler/behavior.py` so bit-width inference handles the new `ast` node.
-2.  Add the translation rule to each language backend in `src/isa_archive/compiler/backends/` that should support it (QEMU C/TCG, Verilog, Rust); the LLVM path infers selection patterns in `generators/llvm.py`.
-3.  Update `tests/test_behavior.py` to verify the translation.
+We keep a high validation bar.
 
----
-
-## ✅ Testing Standards
-
-We maintain a high bar for validation. 
-*   **Unit Tests:** Every model and parser utility has a unit test.
-*   **Failure Tests:** We intentionally write "bad" YAML manifests in `tests/test_registry.py` to ensure the validator correctly catches and reports errors (like overlapping bits or decoder collisions).
+- **Unit tests:** every model and parser utility has one.
+- **Failure tests:** deliberately "bad" manifests (e.g. in `tests/test_registry.py`) assert the
+  validator catches and reports errors (overlapping bits, decoder collisions, …).
 
 Before submitting a PR or finishing a task:
+
 ```bash
 uv run pytest
 ```
-
----
 
 ## 📚 Documentation changes
 
-User-facing docs live in `docs/` and are written for *users of the library*,
-not maintainers. When you touch them:
+User-facing docs live in `docs/` and are written for *users of the library* (the
+`docs/development/` section is the exception - it's for contributors). When you touch them:
 
-*   **Run every command you document.** Command blocks and their expected
-    output in `docs/getting-started/`, `docs/tutorial/`, and the guides must be
-    real captured output, not paraphrased. The tutorial's per-part snapshots
-    live in `examples/tutorial/pico32-part*/` — keep them in sync with the
-    prose, and `uv run pytest` parses them as a regression check.
-*   **No internal roadmap vocabulary** in `docs/` (no plan-item codes, "phase
-    N", "tier N", or "we plan to…"). State what works today and what the
-    current boundary is, from the user's point of view.
-*   **Keep toolchain commands aligned** with the automated scripts in
-    `examples/tutorial/scripts/` so the manual guides and the scripts can't drift.
+- **Run every command you document.** Command blocks and expected output must be real captured
+  output. The tutorial's per-part snapshots live in `examples/tutorial/pico32-part*/` - keep them in
+  sync; `uv run pytest` parses them as a regression check.
+- **No internal roadmap vocabulary** in `docs/` (no plan-item codes, "phase N", "tier N", or "we
+  plan to…"). State what works today and the current boundary, from the user's point of view.
+- **Keep toolchain commands aligned** with the scripts in `examples/tutorial/scripts/`.
 
 ## 📜 License
-*   **Tool:** GNU GPLv3
-*   **Generated Output:** This code was generated by ISA-Archive. The tool is provided "as is", without warranty of any kind. Full ownership of the generated code belongs to the user or organization.
+
+- **Tool:** GNU GPLv3.
+- **Generated output:** owned entirely by you. Provided "as is", without warranty of any kind.

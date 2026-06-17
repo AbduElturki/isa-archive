@@ -63,3 +63,7 @@ structure but the generator does not (yet) build hazard logic from them.
   `{isa}_operands.sv` is emitted.
 - Behaviors using memory access generate request/response port signals, not a
   bus protocol - wire them to your memory system.
+- Vector/shaped-register element access (`vd[i]`), per-register
+  [attributes](../yaml/registers.md) (`reg.attr`), CSRs, and traps aren't modeled
+  in the RTL skeleton yet - those instructions emit a `// … not modeled`
+  placeholder. (1-D vector files still get operand typedefs.)

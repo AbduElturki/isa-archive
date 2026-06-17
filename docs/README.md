@@ -1,6 +1,14 @@
-# isa-archive documentation
+<div align="center">
 
-Define your instruction set once, in YAML. Generate everything else:
+# ISA-Archive Documentation
+
+**Define your instruction set once, in YAML. Generate everything else.**
+
+[Repo](../README.md) · [Quickstart](getting-started/quickstart.md) · [Tutorial](../examples/tutorial/README.md) · [CLI](cli.md)
+
+</div>
+
+From one set of manifests, ISA-Archive generates:
 
 - a **QEMU system emulator** that boots and runs programs for your ISA
 - an **LLVM backend** - a real `clang` that compiles C for your ISA
@@ -9,11 +17,10 @@ Define your instruction set once, in YAML. Generate everything else:
 - **SystemVerilog** hardware models
 - a **reference manual** (Markdown / HTML / PDF)
 
-All from one set of manifests. The pipeline is proven end to end: the
-generated pico32 backend compiles `fib.c`, and the binary runs on the
-generated `qemu-system-pico32`.
+The pipeline is proven end to end: the generated pico32 backend compiles `fib.c`, and the binary
+runs on the generated `qemu-system-pico32`.
 
-## Choose your path
+## 🧭 Choose your path
 
 | You want to… | Go to |
 |---|---|
@@ -24,8 +31,9 @@ generated `qemu-system-pico32`.
 | Build & run the QEMU simulator | [QEMU guide](qemu/README.md) |
 | Build & use the C compiler | [Compiler guide](compiler/README.md) |
 | See what each example demonstrates | [Examples tour](examples.md) |
+| Understand the code / contribute | [Developer docs](development/README.md) |
 
-## All pages
+## 📚 All pages
 
 **Getting started**
 - [Installation](getting-started/installation.md) - install the tool; what you'll need later for toolchain builds
@@ -41,16 +49,20 @@ generated `qemu-system-pico32`.
 
 **YAML manifest reference**
 - [The manifest format](yaml/README.md) - envelope, validation, multi-file projects
-- [ISA](yaml/isa.md) · [Register files](yaml/registers.md) · [Schema](yaml/schemas.md) · [Instruction](yaml/instructions.md) · [Operand / Enum / Constant](yaml/types.md) · [uArch](yaml/uarch.md)
+- [ISA](yaml/isa.md) · [Register files](yaml/registers.md) · [Schema](yaml/schemas.md) · [Instruction](yaml/instructions.md) · [Operand / Enum / Constant / ScalarType](yaml/types.md) · [uArch](yaml/uarch.md)
 - [The behavior DSL](yaml/behavior.md) - how instruction semantics are written
 
 **Guides**
 - [QEMU: the generated simulator](qemu/README.md) and [building & running it](qemu/build-and-run.md)
 - [LLVM: the generated compiler](compiler/README.md), [compiler roles & the coverage report](compiler/roles-and-coverage.md), and [building & using clang](compiler/build-and-use.md)
 
-**Other generation targets**
-- [Standalone assembler](targets/assembler.md) · [C/Rust intrinsics](targets/intrinsics.md) · [SystemVerilog](targets/verilog.md) · [Reference manuals](targets/reference-manuals.md)
+**Other generation targets** ([overview](targets/README.md))
+- [Standalone assembler](targets/assembler.md) · [C/Rust intrinsics](targets/intrinsics.md) · [SystemVerilog](targets/verilog.md) · [Reference manuals](targets/reference-manuals.md) · [C++ ISA headers](targets/cpp-isa.md)
 
 **Reference**
 - [CLI reference](cli.md) - every command, flag, and target
 - [Examples tour](examples.md) - what each `examples/` directory demonstrates
+
+**Developer docs** (how it's built, how to contribute)
+- [Architecture](development/architecture.md) - the pipeline and the modules
+- [Extending the tool](development/extending.md) - add a target, manifest kind, DSL construct, or backend

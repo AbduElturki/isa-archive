@@ -11,6 +11,10 @@ Each format is also addressable as a sub-target - `-t docs-md`, `-t docs-html`,
 `-t docs-pdf` - the form a [Project](../yaml/project.md) manifest uses to pin one
 format per output path.
 
+**Preview the bundled examples.** `bash examples/view-docs.sh` generates the HTML
+manuals for pico32 and npu-probe and serves them on `http://localhost:8000`
+(pass a port, e.g. `bash examples/view-docs.sh 9000`).
+
 Produces `{isa}_reference.md` / `.html` / `.pdf` - a human-readable
 architecture manual generated from the same manifests as the toolchain:
 

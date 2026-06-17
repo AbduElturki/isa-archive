@@ -70,8 +70,7 @@ all CPU conventions** (`sp`/`ra`/`zero` and the argument/saved registers come *o
 from here - nothing is guessed from positions).
 
 See **[registers.md](registers.md)** for the full reference - element types, shaped
-vector/tile registers, attributes, the per-generator width rules, and the
-**[planned work](registers.md#planned-work)** roadmap.
+vector/tile registers, attributes, and the per-generator width rules.
 
 ## `state.csrs` - control/status registers
 
