@@ -4,8 +4,10 @@ How ISA-Archive is built, and how to extend it. This section is for **contributo
 maintainers** - if you're authoring an ISA, start with the [manifest reference](../yaml/README.md)
 instead.
 
-- [**Architecture**](architecture.md) - the pipeline, the modules, and how one `behavior:` becomes
-  every backend.
+- [**Architecture**](architecture.md) - the pipeline, the modules, how one `behavior:` becomes
+  every backend, and the file-by-file `generate` call chain.
+- [**The behavior IR**](behavior-ir.md) - how a `behavior:` string is parsed into an AST, what
+  `BehaviorIR` analyzes, width inference, the DSL recognizers, and how a backend walks the tree.
 - [**Extending the tool**](extending.md) - add a generation target, a manifest kind, a behavior-DSL
   construct, or a language backend.
 

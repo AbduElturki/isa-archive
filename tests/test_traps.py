@@ -80,6 +80,24 @@ def test_trap_lowers_to_epc_cause_vector_sequence():
     assert "env->mstatus = env->mstatus & ~0x8;" in c
 
 
+def test_do_interrupt_body_vectors_like_trap():
+    # Hardware interrupt delivery reuses the software-trap vectoring (epc, cause,
+    # mie->mpie, mie=0, pc=mtvec&~3); the cause is a C variable the caller sets.
+    from isa_archive.compiler.backends.qemu_c import build_do_interrupt_body
+    _, ci, ti = _ctx()
+    body = build_do_interrupt_body(ti, ci, pc_mask=None)
+    assert "env->mepc = env->pc;" in body
+    assert "env->mcause = cause;" in body
+    assert "(((env->mstatus >> 3) & 0x1) << 7)" in body   # mpie = mie
+    assert "env->mstatus = env->mstatus & ~0x8;" in body  # mie = 0
+    assert "env->pc = env->mtvec & ~0x3;" in body
+
+
+def test_do_interrupt_body_none_without_trap():
+    from isa_archive.compiler.backends.qemu_c import build_do_interrupt_body
+    assert build_do_interrupt_body(None, {}) is None
+
+
 def test_trap_return_restores_pc_and_mie():
     _, c = _lower("trap_return()")
     assert "env->pc = env->mepc;" in c

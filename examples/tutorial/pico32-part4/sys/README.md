@@ -44,10 +44,20 @@ grep -A6 'HELPER(ecall)' build/sys-qemu/pico32sys_helpers.c
 uv run isa-archive generate -i isa.yaml -t docs     -o build/sys-docs
 ```
 
+## Interrupts
+
+Hardware interrupts are delivered too: the generated QEMU CPU vectors an external
+IRQ (and synchronous exceptions) through the trap CSRs instead of halting, and the
+machine declares an `irq_test` device whose register raises the CPU's IRQ line.
+[`programs/irq.c`](programs/irq.c) is a runnable demo — it points `mtvec` at an
+ISR, enables `mstatus.mie`, writes the device to take an interrupt, and exits PASS.
+See that file's header for the exact build/run command (needs `-march=rv32i_zicsr`).
+
 ## Current boundaries
 
-- Traps are *software* traps (taken via `trap()` in a behavior); there is no
-  hardware interrupt delivery yet, and `mtvec` is used in direct mode.
+- Traps and interrupts both vector through `mtvec` in **direct mode**; there is no
+  interrupt-controller / priority model, and software traps are taken via `trap()`
+  in a behavior.
 - CSR access is to a CSR fixed per instruction; a single `csrrw` that selects
   its CSR from a runtime immediate isn't modeled yet.
 - `ECALL`/`MRET`/CSR instructions are simulator-side (custom-lowered in the LLVM

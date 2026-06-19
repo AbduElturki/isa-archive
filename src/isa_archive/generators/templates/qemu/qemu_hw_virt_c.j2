@@ -24,6 +24,9 @@
 {%- if p.type == "sifive_test" %}
 #include "hw/misc/sifive_test.h"
 {%- endif %}
+{%- if p.type == "irq_test" %}
+#include "hw/irq.h"
+{%- endif %}
 {%- endfor %}
 
 #define VIRT_RAM_BASE   0x{{ "%08x" | format(machine.ram_base) }}UL
@@ -35,6 +38,31 @@
 #define VIRT_{{ p.name | upper }}_IRQ   {{ p.irq }}
 {%- endif %}
 {%- endfor %}
+{%- if (machine.qemu.devices if machine.qemu else []) | selectattr("type", "equalto", "irq_test") | list %}
+
+/* Interrupt-test device: writing its register pulses the CPU's hard IRQ line
+   (non-zero = assert, 0 = deassert), so a guest can deterministically take an
+   interrupt without a full interrupt controller. */
+static qemu_irq {{ isa_name | lower | replace("-", "_") }}_test_irq;
+
+static void {{ isa_name | lower | replace("-", "_") }}_irqtest_write(void *opaque, hwaddr addr,
+                                                  uint64_t val, unsigned size)
+{
+    qemu_set_irq({{ isa_name | lower | replace("-", "_") }}_test_irq, val != 0);
+}
+
+static uint64_t {{ isa_name | lower | replace("-", "_") }}_irqtest_read(void *opaque, hwaddr addr,
+                                                     unsigned size)
+{
+    return 0;
+}
+
+static const MemoryRegionOps {{ isa_name | lower | replace("-", "_") }}_irqtest_ops = {
+    .read       = {{ isa_name | lower | replace("-", "_") }}_irqtest_read,
+    .write      = {{ isa_name | lower | replace("-", "_") }}_irqtest_write,
+    .endianness = DEVICE_NATIVE_ENDIAN,
+};
+{%- endif %}
 
 {%- if sp_reg_idx is not none %}
 /*
@@ -69,6 +97,11 @@ static void {{ isa_name | lower | replace("-", "_") }}_virt_init(MachineState *m
     qemu_register_resettable(cpuobj);
     /* No 'sp' alias declared - no stack pointer to pre-initialize. */
 {%- endif %}
+{%- if (machine.qemu.devices if machine.qemu else []) | selectattr("type", "equalto", "irq_test") | list %}
+
+    /* Grab the CPU's hard-IRQ input line for the interrupt-test device. */
+    {{ isa_name | lower | replace("-", "_") }}_test_irq = qdev_get_gpio_in(DEVICE(cpuobj), 0);
+{%- endif %}
 
     /* RAM */
     memory_region_add_subregion(sys, VIRT_RAM_BASE, machine->ram);
@@ -82,6 +115,13 @@ static void {{ isa_name | lower | replace("-", "_") }}_virt_init(MachineState *m
 
     /* {{ p.name }} SiFive test device (write 0x5555 = exit 0) */
     sifive_test_create(VIRT_{{ p.name | upper }}_BASE);
+{%- elif p.type == "irq_test" %}
+
+    /* {{ p.name }} interrupt-test register (write non-zero = raise CPU IRQ) */
+    MemoryRegion *{{ p.name }} = g_new0(MemoryRegion, 1);
+    memory_region_init_io({{ p.name }}, NULL, &{{ isa_name | lower | replace("-", "_") }}_irqtest_ops,
+                          NULL, "{{ p.name }}", 0x1000);
+    memory_region_add_subregion(sys, VIRT_{{ p.name | upper }}_BASE, {{ p.name }});
 {%- endif %}
 {%- endfor %}
 

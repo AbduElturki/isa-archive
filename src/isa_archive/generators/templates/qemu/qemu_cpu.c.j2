@@ -10,6 +10,12 @@
 #include "qemu/log.h"
 #include "hw/qdev-properties.h"
 #include "sysemu/tcg.h"
+{%- if do_interrupt_body %}
+
+#ifndef CONFIG_USER_ONLY
+static void {{ isa_name | lower | replace("-", "_") }}_cpu_set_irq(void *opaque, int irq, int level);
+#endif
+{%- endif %}
 
 static void {{ isa_name | lower | replace("-", "_") }}_cpu_realize(DeviceState *dev, Error **errp)
 {
@@ -24,6 +30,13 @@ static void {{ isa_name | lower | replace("-", "_") }}_cpu_realize(DeviceState *
     }
     qemu_init_vcpu(cs);
     cpu_reset(cs);
+{%- if do_interrupt_body %}
+
+#ifndef CONFIG_USER_ONLY
+    /* One hard-IRQ input line a board pulses to deliver an interrupt. */
+    qdev_init_gpio_in(dev, {{ isa_name | lower | replace("-", "_") }}_cpu_set_irq, 1);
+#endif
+{%- endif %}
 
     xcc->parent_realize(dev, errp);
 }
@@ -97,6 +110,52 @@ static const struct SysemuCPUOps {{ isa_name | lower | replace("-", "_") }}_syse
 #include "hw/core/tcg-cpu-ops.h"
 
 #ifndef CONFIG_USER_ONLY
+{%- if do_interrupt_body %}
+/* This ISA declares a `trap:` block, so exceptions and hardware interrupts are
+   delivered by vectoring through the trap CSRs (the same path software trap()
+   uses) instead of halting. A board raises an interrupt by asserting the CPU's
+   hard interrupt line: cpu_interrupt(cs, CPU_INTERRUPT_HARD). */
+#define EXCP_IRQ  0x100   /* exception_index marker for an asynchronous interrupt */
+
+/* Board IRQ input handler: assert/deassert the CPU's hard interrupt line. */
+static void {{ isa_name | lower | replace("-", "_") }}_cpu_set_irq(void *opaque, int irq, int level)
+{
+    CPUState *cs = CPU(opaque);
+    if (level) {
+        cpu_interrupt(cs, CPU_INTERRUPT_HARD);
+    } else {
+        cpu_reset_interrupt(cs, CPU_INTERRUPT_HARD);
+    }
+}
+
+static void {{ isa_name | lower | replace("-", "_") }}_cpu_do_interrupt(CPUState *cs)
+{
+    CPUArchState *env = cpu_env(cs);
+    uint{{ tcg_bits }}_t cause = (cs->exception_index == EXCP_IRQ)
+                       ? {{ irq_cause }}    /* mcause.interrupt = 1 */
+                       : {{ exc_cause }};   /* synchronous exception cause */
+    {{ do_interrupt_body | indent(4) }}
+    cs->exception_index = -1;
+    cpu_reset_interrupt(cs, CPU_INTERRUPT_HARD);
+}
+
+static bool {{ isa_name | lower | replace("-", "_") }}_cpu_exec_halt(CPUState *cs)
+{
+    /* Wake from a halt (WFI) when a hard interrupt is pending. */
+    return !(cs->interrupt_request & CPU_INTERRUPT_HARD);
+}
+
+static bool {{ isa_name | lower | replace("-", "_") }}_cpu_exec_interrupt(CPUState *cs, int interrupt_request)
+{
+    CPUArchState *env = cpu_env(cs);
+    if ((interrupt_request & CPU_INTERRUPT_HARD) && {{ irq_enable_expr }}) {
+        cs->exception_index = EXCP_IRQ;
+        {{ isa_name | lower | replace("-", "_") }}_cpu_do_interrupt(cs);
+        return true;
+    }
+    return false;
+}
+{%- else %}
 static bool {{ isa_name | lower | replace("-", "_") }}_cpu_exec_halt(CPUState *cs)
 {
     return true;  /* no WFI / interrupt support — always halted when asked */
@@ -122,6 +181,7 @@ static void {{ isa_name | lower | replace("-", "_") }}_cpu_do_interrupt(CPUState
     cs->exception_index = -1;
     cs->halted = 1;
 }
+{%- endif %}
 #endif
 
 static const TCGCPUOps {{ isa_name | lower | replace("-", "_") }}_tcg_ops = {

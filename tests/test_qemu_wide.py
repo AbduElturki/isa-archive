@@ -10,7 +10,8 @@ from isa_archive.compiler.loader import load_isa, Registry
 from isa_archive.generators.qemu import generate_qemu
 
 EX = pathlib.Path(__file__).resolve().parent.parent / "examples"
-WIDE = EX / "wide-probe/isa.yaml"          # 128-bit words
+WIDE = EX / "wide-probe/isa.yaml"          # 128-bit words, little-endian
+WIDE_BE = EX / "wide-probe-be/isa.yaml"    # 128-bit words, big-endian
 PICO32 = EX / "tutorial/pico32-part4/isa.yaml"  # 32-bit words (decodetree path)
 
 
@@ -54,8 +55,23 @@ def test_qemu_wide_translate_fetches_byte_array(tmp_path):
     tr = (_gen(tmp_path, WIDE) / "wide-probe_translate.c").read_text()
     assert "uint8_t insn[16];" in tr
     assert "translator_ldub(env, &ctx->base, ctx->base.pc_next + _i)" in tr
+    # Little-endian: byte _i goes straight to insn[_i] (the regression guard for BE).
+    assert "insn[_i] = translator_ldub" in tr
     # No single-word load for a 128-bit ISA.
     assert "translator_ldq" not in tr and "translator_ldl" not in tr
+
+
+def test_qemu_wide_big_endian_reverses_fetch(tmp_path):
+    # On a big-endian guest the byte at the lowest address is most-significant, so
+    # the fetch stores into insn[N-1-_i] to normalize to a little-endian byte array
+    # (get_bits then stays byte-order-agnostic — same decoder body as little-endian).
+    out = _gen(tmp_path, WIDE_BE)
+    tr = (out / "wide-probe-be_translate.c").read_text()
+    assert "insn[16 - 1 - _i] = translator_ldub" in tr
+    assert "insn[_i] = translator_ldub" not in tr
+    # Decoder is identical to the LE one (the tag-at-bit-64 dispatch is unchanged).
+    dec = (out / "decode-wide-probe-be.c.inc").read_text()
+    assert "get_bits(insn, 64, 8) == 2ull" in dec
 
 
 def test_qemu_narrow_still_uses_decodetree(tmp_path):

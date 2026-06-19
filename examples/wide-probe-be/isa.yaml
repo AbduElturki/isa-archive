@@ -1,0 +1,62 @@
+apiVersion: isa-archive/v1
+kind: ISA
+metadata:
+  name: wide-probe-be
+  description: >
+    Big-endian variant of wide-probe: a 128-bit-instruction ISA with
+    byte_order: big. It exercises the QEMU >64-bit fetch on a big-endian guest -
+    the byte at the lowest address is the most-significant byte, so the fetch
+    loop stores into insn[N-1-i] to normalize the word to a little-endian byte
+    array (the decoder's get_bits is then byte-order-agnostic).
+spec:
+  version: "1.0"
+  xlen: 32
+  byte_order: big
+  compiler:
+    profile: kernel-only
+  state:
+    registers:
+      - name: r
+        width: 32
+        count: 16
+---
+apiVersion: isa-archive/v1
+kind: Enum
+metadata: { name: TAG, description: "selects the op; lives beyond bit 64" }
+spec:
+  width: 8
+  values: { ADD: 1, SUB: 2 }
+---
+apiVersion: isa-archive/v1
+kind: Schema
+metadata:
+  name: WType
+  description: 128-bit word; a constant tag and the immediate sit above bit 64
+spec:
+  length: 128
+  fields:
+    - { name: opcode,  start: 0,   width: 8,  role: opcode }
+    - { name: rd,      start: 8,   width: 4,  role: register, type: r }
+    - { name: rs1,     start: 12,  width: 4,  role: register, type: r }
+    - { name: pad_lo,  start: 16,  width: 48, role: reserved }
+    - { name: tag,     start: 64,  width: 8,  role: constant, type: enum.TAG }
+    - { name: imm,     start: 72,  width: 32, role: immediate, type: signed }
+    - { name: pad_hi,  start: 104, width: 24, role: reserved }
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata: { name: WADD, description: "rd = rs1 + imm  (tag distinguishes it above bit 64)" }
+spec:
+  schema: WType
+  opcode: 0x01
+  tag: TAG.ADD
+  behavior: "rd = rs1 + imm"
+---
+apiVersion: isa-archive/v1
+kind: Instruction
+metadata: { name: WSUB, description: "rd = rs1 - imm  (same opcode, different tag at bit 64)" }
+spec:
+  schema: WType
+  opcode: 0x01
+  tag: TAG.SUB
+  behavior: "rd = rs1 - imm"

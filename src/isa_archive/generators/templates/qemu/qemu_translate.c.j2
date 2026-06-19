@@ -49,7 +49,7 @@ static void {{ isa_name | lower | replace("-", "_") }}_tr_translate_insn(DisasCo
        (wider than any single load; decode reads its fields with get_bits). */
     uint8_t insn[{{ insn_bytes }}];
     for (int _i = 0; _i < {{ insn_bytes }}; _i++) {
-        insn[_i] = translator_ldub(env, &ctx->base, ctx->base.pc_next + _i);
+        insn[{% if byte_order == "big" %}{{ insn_bytes }} - 1 - _i{% else %}_i{% endif %}] = translator_ldub(env, &ctx->base, ctx->base.pc_next + _i);
     }
     ctx->base.pc_next += {{ insn_bytes }};
     if (!decode(ctx, insn)) {

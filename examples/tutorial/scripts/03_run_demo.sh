@@ -10,10 +10,15 @@
 #   bash 03_run_demo.sh [BUILD_DIR]
 
 set -euo pipefail
+# Honor a pre-set $CLANG (e.g. CI using the distro clang, which supports the
+# riscv32/rv32i target these CFLAGS request) so the demo can run without the
+# ~40-min generated-LLVM build; otherwise fall back to the generated clang.
+CLANG_OVERRIDE="${CLANG:-}"
 source "$(dirname "$0")/common.sh"
 [ -n "${1:-}" ] && BUILD_DIR="$1" \
     && QEMU_BIN="$BUILD_DIR/qemu/build/qemu-system-${ISA_NAME}" \
     && CLANG="$BUILD_DIR/llvm/build/bin/clang"
+[ -n "$CLANG_OVERRIDE" ] && CLANG="$CLANG_OVERRIDE"
 
 OUT_DIR="$BUILD_DIR/programs"
 mkdir -p "$OUT_DIR"
@@ -60,6 +65,9 @@ if [ "$FIB_OUT" = "fib(10) = 55" ]; then
     echo "      fib(10) = 55:  PASS"
 else
     echo "      fib(10) = 55:  FAIL (got: '$FIB_OUT')"
+    echo ""
+    echo "=== Demo FAILED ==="
+    exit 1
 fi
 
 echo ""

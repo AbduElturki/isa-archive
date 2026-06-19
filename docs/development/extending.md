@@ -40,7 +40,9 @@ backends) - both are recent, small, end-to-end examples.
 
 ## Add a behavior-DSL construct
 
-To support a new operator, built-in, or namespace in `behavior:` strings:
+To support a new operator, built-in, or namespace in `behavior:` strings (read
+[The behavior IR](behavior-ir.md) first for how parsing, recognizers, and width inference fit
+together):
 
 1. **Recognize + size it** in `compiler/behavior.py`: add a recognizer (like `csr_ref` /
    `reg_element_access`) and a `get_width` case so bit-width inference handles the new AST node; set

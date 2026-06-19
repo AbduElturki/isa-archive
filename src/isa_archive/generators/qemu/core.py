@@ -5,7 +5,8 @@ import pathlib
 from typing import Optional
 
 from ...compiler.loader import Registry
-from ...compiler.utils import compute_insn_width
+from ...compiler.utils import compute_insn_width, build_trap_info, build_csr_info
+from ...compiler.backends.qemu_c import build_do_interrupt_body
 from ..base import prepare_output_dir, write_generated, make_renderer, CLANG_FORMAT_QEMU
 from .word import _guest_word, _regfile_storage, _float_scalar_types
 from .semantics import _make_qemu_env, _validate_for_qemu, _build_wide_decode_meta
@@ -17,6 +18,32 @@ _QEMU_WIDTH_HINT = ("The QEMU backend decodes instruction words up to "
                     f"{_QEMU_MAX_INSN_BITS} bits; wider encodings are not supported.")
 
 logger = logging.getLogger("isa_archive.generators")
+
+
+def _interrupt_ctx(isa_reg, pc_mask) -> dict:
+    """Hardware-interrupt-delivery context for the CPU template, derived from the
+    ISA's `trap:` block. For an ISA without one, `do_interrupt_body` is None and
+    the CPU keeps its halt-on-exception fallback — byte-identical to before."""
+    trap_info = build_trap_info(isa_reg)
+    if not trap_info:
+        return {"do_interrupt_body": None, "irq_enable_expr": None,
+                "irq_cause": None, "exc_cause": None}
+    csr_info = build_csr_info(isa_reg)
+    sc = trap_info.get("status_csr")
+    scf = csr_info.get(sc, {}).get("fields", {}) if sc else {}
+    # Interrupts are taken only when the status CSR's mie bit is set (if declared).
+    irq_enable_expr = (f"((env->{sc} >> {scf['mie'][0]}) & 1)"
+                       if sc and "mie" in scf else "1")
+    cc = trap_info["cause_csr"]
+    ccf = csr_info.get(cc, {}).get("fields", {})
+    ibit = (ccf["interrupt"][0] if "interrupt" in ccf
+            else csr_info.get(cc, {}).get("width", 32) - 1)
+    return {
+        "do_interrupt_body": build_do_interrupt_body(trap_info, csr_info, pc_mask),
+        "irq_enable_expr": irq_enable_expr,
+        "irq_cause": hex(1 << ibit),                          # mcause.interrupt = 1
+        "exc_cause": trap_info["causes"].get("illegal", 0),   # synchronous exception
+    }
 
 
 def _write_isa_files(env, isa_reg, out_path: pathlib.Path, clang_format: bool = False):
@@ -34,15 +61,18 @@ def _write_isa_files(env, isa_reg, out_path: pathlib.Path, clang_format: bool = 
     from ...models.scalar_types import format_include
     c_includes = sorted({format_include(ft["c_include"])
                          for ft in float_types if ft["c_include"]})
+    byte_order = getattr(isa_reg.manifest.spec, "byte_order", "little")
+    intr = _interrupt_ctx(isa_reg, word["xlen_mask"])
     ctx = dict(instructions=isa_reg.instructions, isa_reg=isa_reg, isa_name=isa_reg.name,
                xlen=xlen, tcg_type=word["tcg_type"], c_int_type=word["c_int_type"],
                tcg_bits=word["tcg_bits"], xlen_mask=word["xlen_mask"],
                page_bits=word["page_bits"], addr_bits=word["addr_bits"],
                insn_bits=_w["insn_bits"], insn_bytes=_w["insn_bytes"],
                wide=wide, wide_instrs=(_build_wide_decode_meta(isa_reg) if wide else None),
+               byte_order=byte_order,
                reg_storage=_regfile_storage(isa_reg),
                float_scalar_types=float_types, c_includes=c_includes,
-               has_mem=has_mem, has_float=bool(float_types), has_sext=has_sext)
+               has_mem=has_mem, has_float=bool(float_types), has_sext=has_sext, **intr)
 
     render = make_renderer(env, ctx, clang_format=clang_format)
     name = isa_reg.name

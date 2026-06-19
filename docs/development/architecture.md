@@ -66,6 +66,53 @@ spec: { schema: RType, opcode: OP, funct3: F3_ALU.ADD_SUB, funct7: F7_ALU.BASE,
    **`qemu_c`/`qemu_tcg`** emit the helper / TCG op; **`verilog`** emits the ALU datapath.
 4. The generator renders the per-target Jinja templates into files.
 
+The AST mechanics behind step 2 - parsing, `BehaviorIR`'s analysis, width inference, and how a
+backend walks the tree - are documented in [the behavior IR page](behavior-ir.md).
+
+## What runs when: the `generate` call chain
+
+The diagram above is the *structural* view (which modules exist). This is the *execution* view -
+which file and function fires, in order, for `isa-archive generate -i isa.yaml -t <target> -o out/`:
+
+```mermaid
+flowchart TB
+    A["<b>cli.py</b> · generate()"] --> B["<b>loader.py</b> · load_isa()<br/><i>load_manifest (kind→model) · ISARegistry · resolve extends/includes</i>"]
+    B --> V["<b>loader.py</b> · ISARegistry.validate()<br/><i>per instruction: BehaviorIR(…) + QemuCBackend(ir).translate()<br/>+ decoder-collision / field / enum / CSR checks</i>"]
+    V --> D["<b>targets.py</b> · run_target(name)<br/><i>_TARGETS[name] lambda (+ components= for a sub-target)</i>"]
+    D --> G["a generator entry<br/><i>qemu/core._write_isa_files · cpp_isa.generate_cpp_isa · llvm/core.generate_llvm · …</i>"]
+    G --> C["build the template ctx<br/><i>consult the registry; lower behaviors via compiler/backends/*</i>"]
+    C --> R["<b>base.py</b> · make_renderer → render(template, dest)"]
+    R --> W["<b>base.py</b> · write_generated → normalize_generated"]
+    W --> F["file on disk"]
+```
+
+1. **`cli.py` · `generate()`** builds an empty `Registry`, calls `load_isa` (and `load_uarch`) for
+   each `-i`/`-u`, keeps only the explicitly requested ISAs, then resolves `-t` to one or more
+   target names (`targets.ALL_TARGETS` for `-t all`) and calls `run_target` for each. The `-t`
+   choices themselves come from `targets.TARGET_NAMES`.
+2. **`loader.py` · `load_isa()`** reads the YAML docs, maps each `kind:` to a Pydantic model
+   (`load_manifest`), builds the `ISARegistry`, resolves `extends:`/`includes:`, then runs
+   **`ISARegistry.validate()`** - which constructs a `BehaviorIR` for every instruction and lowers
+   it through `QemuCBackend(ir).translate()` to prove it's well-formed, alongside the structural
+   checks (decoder collisions, field bounds, enum refs, CSR addresses). Validation happens **once**,
+   before any target runs.
+3. **`targets.py` · `run_target(name)`** looks `name` up in the `_TARGETS` dispatch table and calls
+   its lambda, which invokes the matching generator - passing a `components={…}` filter for
+   sub-targets (`qemu-isa`, `llvm-tablegen`, `docs-html`, …).
+4. **The generator** (e.g. `qemu/core.py`'s `_write_isa_files`, or `cpp_isa.py`'s
+   `generate_cpp_isa`) loops over the ISAs, builds a context dict - consulting the registry and
+   lowering each `behavior:` through the relevant `compiler/backends/*` - and calls `render(...)`
+   per output file.
+5. **`base.py`** turns each `(template, ctx)` into text (`make_renderer` → Jinja
+   `env.get_template(...).render(**ctx)`) and writes it through `write_generated`, which runs
+   `normalize_generated` (trailing-whitespace/blank-line cleanup, single final newline) and
+   optionally `clang-format`.
+
+`isa-archive build <project.yaml>` is the same chain with a different front: `load_project` loads
+every ISA/uArch the [`Project`](../yaml/project.md) references, then calls `run_target` once per
+`generate:` entry into that entry's `output` path (honouring its `on_exist` policy). `parse` stops
+after step 2 - it loads and validates, then reports, without generating.
+
 ## Graceful degradation
 
 Not every construct maps to every backend. Rather than fail, a backend that can't model something

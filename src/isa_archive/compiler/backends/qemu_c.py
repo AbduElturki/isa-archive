@@ -12,6 +12,39 @@ def _indent(code: str) -> str:
     return "\n".join("    " + ln if ln.strip() else ln for ln in code.split("\n"))
 
 
+def build_do_interrupt_body(trap_info, csr_info, pc_mask=None,
+                            env_prefix="env->", cause_var="cause") -> Optional[str]:
+    """C statements for QEMU's `do_interrupt` on an ISA with a `trap:` block:
+    vector through the trap CSRs exactly like a software `trap()` — save epc, set
+    `cause_csr` to the C variable `cause_var` (the caller picks the value: the
+    interrupt marker for an IRQ, the cause code for a synchronous exception), do
+    the mie->mpie save / mie=0 shuffle, then `pc = mtvec & ~3`. This is the same
+    vectoring `QemuCBackend._emit_trap` emits, so hardware interrupts and software
+    traps share one path. Returns None if the ISA declares no `trap:` block (the
+    CPU keeps the halt-on-exception fallback).
+    """
+    if not trap_info:
+        return None
+    p = env_prefix
+    lines = [f"{p}{trap_info['epc_csr']} = {p}pc;",
+             f"{p}{trap_info['cause_csr']} = {cause_var};"]
+    sc = trap_info.get("status_csr")
+    scf = csr_info.get(sc, {}).get("fields", {}) if sc else {}
+    if sc and "mie" in scf and "mpie" in scf:
+        ms, mw = scf["mie"]
+        ps, pw = scf["mpie"]
+        dmask = ((1 << pw) - 1) << ps          # mpie = mie
+        lines.append(f"{p}{sc} = ({p}{sc} & ~{hex(dmask)}) | "
+                     f"((({p}{sc} >> {ms}) & {hex((1 << mw) - 1)}) << {ps});")
+        mmask = ((1 << mw) - 1) << ms          # mie = 0
+        lines.append(f"{p}{sc} = {p}{sc} & ~{hex(mmask)};")
+    pcv = f"{p}{trap_info['vector_csr']} & ~0x3"
+    if pc_mask:
+        pcv = f"({pcv}) & {pc_mask}"
+    lines.append(f"{p}pc = {pcv};")
+    return "\n".join(lines)
+
+
 def _c_int_types(width: int) -> tuple[str, str, int]:
     """(unsigned C type, signed C type, storage bits) for a value width.
 

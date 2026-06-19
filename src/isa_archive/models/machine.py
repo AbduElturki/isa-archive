@@ -5,7 +5,7 @@ from .base import StrictModel
 
 class DeviceDef(StrictModel):
     name: str
-    type: str          # "ns16550" | "sifive_test"
+    type: str          # "ns16550" | "sifive_test" | "irq_test"
     base: int
     irq: Optional[int] = None
 

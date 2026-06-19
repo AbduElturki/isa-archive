@@ -6,6 +6,8 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * *"   # nightly — runs the slow generated-LLVM build gate
 
 # Cancel superseded runs on the same ref (e.g. rapid pushes to a PR branch).
 concurrency:
@@ -66,3 +68,87 @@ jobs:
 
       - name: Generate C intrinsics for the NPU probe
         run: uv run isa-archive generate -i examples/npu-probe/isa.yaml -t c -o build/smoke-npu
+
+  qemu-build:
+    name: qemu build + run (pico32)
+    runs-on: ubuntu-latest
+    # The slow LLVM gate (llvm-build) already builds QEMU on the nightly run.
+    if: github.event_name != 'schedule'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          python-version: "3.12"
+
+      - name: Install QEMU build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build meson pkg-config libglib2.0-dev clang lld
+
+      - name: ccache
+        uses: hendrikmuhs/ccache-action@v1
+        with:
+          key: qemu-${{ runner.os }}-v9.2.0
+
+      - name: Cache QEMU source checkout
+        uses: actions/cache@v4
+        with:
+          path: /tmp/pico32-demo/qemu/qemu-src
+          key: qemu-src-v9.2.0
+
+      # Build the generated qemu-system-pico32 from the YAML and run fib(10) on it,
+      # so a codegen change that breaks the real build or the binary fails CI.
+      - name: Build generated QEMU (pico32)
+        run: bash examples/tutorial/scripts/01_build_qemu.sh /tmp/pico32-demo
+
+      # Distro clang supplies the riscv32/rv32i ELF the demo needs, so the PR gate
+      # runs end-to-end without the ~40-min generated-LLVM build.
+      - name: Run fib(10) on the generated QEMU
+        run: CLANG="$(command -v clang)" bash examples/tutorial/scripts/03_run_demo.sh /tmp/pico32-demo
+
+  llvm-build:
+    name: llvm + qemu build + run (nightly)
+    runs-on: ubuntu-latest
+    # The ~40-min generated-LLVM build runs only on demand / nightly, not per-PR.
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          python-version: "3.12"
+
+      - name: Install build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build meson pkg-config libglib2.0-dev cmake
+
+      - name: ccache
+        uses: hendrikmuhs/ccache-action@v1
+        with:
+          key: llvm-${{ runner.os }}-llvmorg-18.1.8
+          max-size: 2G
+
+      - name: Cache QEMU + LLVM source checkouts
+        uses: actions/cache@v4
+        with:
+          path: |
+            /tmp/pico32-demo/qemu/qemu-src
+            /tmp/pico32-demo/llvm/llvm-src
+          key: src-v9.2.0-llvmorg-18.1.8
+
+      - name: Build generated QEMU (pico32)
+        run: bash examples/tutorial/scripts/01_build_qemu.sh /tmp/pico32-demo
+
+      - name: Build generated LLVM (clang for pico32)
+        run: bash examples/tutorial/scripts/02_build_llvm.sh /tmp/pico32-demo
+
+      # Full self-hosted proof: the generated clang compiles fib.c, the generated
+      # QEMU runs it.
+      - name: Run fib(10) end-to-end (generated clang + generated QEMU)
+        run: bash examples/tutorial/scripts/03_run_demo.sh /tmp/pico32-demo

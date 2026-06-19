@@ -26,6 +26,19 @@ spec:
       ecall_m: 11        # environment call from M-mode
       illegal: 2         # illegal instruction
 
+  # Override the inherited machine to add an interrupt-test device: writing its
+  # register raises the CPU's hard IRQ line, so a guest can take a hardware
+  # interrupt and exercise the trap-CSR vectoring (mepc/mcause/mstatus/mtvec).
+  machine:
+    ram_base: 0x80000000
+    ram_size: 0x08000000
+    reset_vector: 0x80000000
+    qemu:
+      devices:
+        - { name: uart,     type: ns16550,     base: 0x10000000, irq: 10 }
+        - { name: poweroff, type: sifive_test, base: 0x00100000 }
+        - { name: irqtest,  type: irq_test,    base: 0x02000000 }
+
   state:
     csrs:
       - name: cycle

@@ -288,16 +288,19 @@ between versions. The honest boundaries today:
   simulator and the assembler, not a full `clang`. Stack and accumulator machines don't fit LLVM's
   register-allocation model. Accelerators use `profile: kernel-only` (no compiler expected). The
   `--strict` coverage report tells you exactly what's missing.
-- **Generation-verified, not all build-verified.** The pico32 tutorial is validated end to end
-  against real QEMU and LLVM builds; the wider generated output is checked at the source level by
-  the test suite, but a full QEMU/LLVM build is not run for every target.
+- **Build verification.** CI builds the generated QEMU for pico32 and runs `fib(10)` end to end on
+  every PR; the generated LLVM/`clang` is built and run on a nightly job. Targets and ISAs beyond
+  pico32 are still checked only at the source level by the test suite.
 - **Encoding widths.** Instruction words up to **512 bits**, one uniform width per ISA; an
   individual field is read as a value up to 64 bits. Data width (`xlen`) is a power of two from 8 to
   128.
 - **Register model is static.** Fixed-shape vector/tile register files; no runtime- or
   scalable-length (VLA / SVE / RVV-style) shapes, register pairs, sub-register aliasing, or banking.
-- **QEMU scope.** Software traps only (no hardware-interrupt delivery); CSR and trap behaviors are
-  simulator-side. Wide (>64-bit) instruction fetch assumes a little-endian word.
+- **QEMU scope.** The CPU vectors hardware interrupts and synchronous exceptions through an ISA's
+  `trap:` CSRs (`mepc`/`mcause`/`mstatus`/`mtvec`) instead of halting, and a generated `irq_test`
+  machine device raises the CPU's IRQ line end to end (the pico32sys `irq.c` demo). A full
+  interrupt-controller / priority model is not generated. CSR/trap behaviors remain simulator-side.
+  Wide (>64-bit) instruction fetch is byte-order-aware (little- and big-endian).
 - **Decode/encode live in the C++ headers.** There is no separate LLVM `MCDisassembler`; the
   [`cpp-isa`](docs/targets/cpp-isa.md) target is the standalone, compile-tested decode + encode side.
 
