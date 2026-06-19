@@ -270,6 +270,7 @@ def _compute_encoding(isa_reg, instr_defs: list, insn_bits: int, schema_len: int
     lui_width = lui_fixup_info["width"] if lui_fixup_info else 20
     return {
         "byte_order": byte_order,
+        "asm_comment": getattr(spec, "asm_comment", "#"),
         "elf_machine": elf_machine,
         "triple_arch": spec.triple_arch or isa_reg.name,
         "schema_combined_imm": schema_combined_imm,

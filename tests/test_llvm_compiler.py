@@ -22,6 +22,7 @@ PICO32 = EXAMPLES / "tutorial/pico32-part4/isa.yaml"
 PICO32F = EXAMPLES / "tutorial/pico32-part4/fp/isa.yaml"
 CMPISA = FIXTURES / "cmpisa.yaml"
 WIDE = EXAMPLES / "wide-probe/isa.yaml"  # 128-bit words: APInt encode + APInt fixups
+WIDE_BE = EXAMPLES / "wide-probe-be/isa.yaml"  # big-endian
 
 
 def _gen(isa_yaml: pathlib.Path, out: pathlib.Path, strict: bool = True) -> pathlib.Path:
@@ -216,6 +217,29 @@ def test_llvm_wide_fixup_identifiers_are_valid_c(tmp_path):
     fk = _mc(tgt, "FixupKinds.h")
     assert "fixup_wide_probe_lo12_i" in fk
     assert "fixup_wide-probe" not in fk
+
+
+def test_llvm_mcasminfo_endianness_matches_byte_order(tmp_path):
+    # MCAsmInfo used to hardcode IsLittleEndian = true, contradicting the
+    # AsmBackend, the code emitter, and the data layout on big-endian targets.
+    le = _mc(_gen(PICO32, tmp_path / "le"), "MCAsmInfo.cpp")
+    assert "IsLittleEndian = true;" in le
+    be_tgt = _gen(WIDE_BE, tmp_path / "be", strict=False)
+    assert "IsLittleEndian = false;" in _mc(be_tgt, "MCAsmInfo.cpp")
+    # ... and it now agrees with the AsmBackend's endianness.
+    assert "llvm::endianness::big" in _mc(be_tgt, "AsmBackend.cpp")
+
+
+def test_llvm_comment_string_from_manifest(tmp_path):
+    # CommentString defaults to "#" (byte-identical) but is manifest-driven.
+    assert 'CommentString = "#";' in _mc(_gen(PICO32, tmp_path / "default"), "MCAsmInfo.cpp")
+    reg = Registry()
+    top = load_isa(str(PICO32), reg)
+    top.manifest.spec.asm_comment = ";"
+    reg.isas = {top.name: top}
+    generate_llvm(reg, str(tmp_path / "semi"))
+    tgt = next((tmp_path / "semi" / "llvm/lib/Target").iterdir())
+    assert 'CommentString = ";";' in _mc(tgt, "MCAsmInfo.cpp")
 
 
 def test_llvm_narrow_operand_value_unchanged(tmp_path):

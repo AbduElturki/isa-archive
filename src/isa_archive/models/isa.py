@@ -95,6 +95,7 @@ class ISASpec(StrictModel):
     nop_encoding: Optional[str] = None  # NOP value as big-endian hex, e.g. "00000013"
     elf_relocations: Optional[Dict[str, str]] = None  # {"jal": "R_RISCV_JAL", ...}
     byte_order: Literal["little", "big"] = "little"
+    asm_comment: str = "#"  # assembly line-comment string (LLVM CommentString), e.g. "#", ";", "//"
     compiler: Optional[CompilerProfile] = None  # target profile (default: c-baremetal)
     trap: Optional[Trap] = None  # trap/exception wiring (enables trap()/trap_return())
 

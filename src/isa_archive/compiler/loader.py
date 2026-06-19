@@ -442,7 +442,7 @@ def load_isa(isa_path: str, global_registry: Optional[Registry] = None) -> ISARe
         # register under a Triple that doesn't exist and fail to build.
         base_spec = base_isa_reg.manifest.spec
         spec = isa_manifest.spec
-        for fld in ("xlen", "byte_order", "abi", "machine", "compiler",
+        for fld in ("xlen", "byte_order", "asm_comment", "abi", "machine", "compiler",
                     "triple_arch", "elf_machine", "nop_encoding",
                     "elf_relocations", "trap"):
             if fld not in spec.model_fields_set:

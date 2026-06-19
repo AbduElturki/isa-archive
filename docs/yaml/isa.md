@@ -49,6 +49,10 @@ Notes for the extremes:
 `byte_order` (`little` default, or `big`) drives the QEMU target's
 endianness, the LLVM data layout, and the byte order of emitted encodings.
 
+`asm_comment` (default `"#"`) is the assembly line-comment string for the
+generated LLVM assembler (`CommentString`); set it to `";"`, `"//"`, etc. if your
+assembly syntax differs.
+
 ## `state.registers` - register files
 
 ```yaml

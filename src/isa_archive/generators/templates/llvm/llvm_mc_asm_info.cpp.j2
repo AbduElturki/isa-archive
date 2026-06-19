@@ -8,9 +8,9 @@ using namespace llvm;
 {{ ISA }}MCAsmInfo::{{ ISA }}MCAsmInfo(const Triple &TT) {
   CodePointerSize = {{ xlen // 8 }};
   CalleeSaveStackSlotSize = {{ xlen // 8 }};
-  IsLittleEndian = true;
+  IsLittleEndian = {{ "false" if byte_order == "big" else "true" }};
   PrivateLabelPrefix = ".L";
-  CommentString = "#";
+  CommentString = {{ asm_comment | tojson }};
   AlignmentIsInBytes = false;
   SupportsDebugInformation = true;
   ExceptionsType = ExceptionHandling::DwarfCFI;
