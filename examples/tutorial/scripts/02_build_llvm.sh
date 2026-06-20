@@ -65,18 +65,21 @@ cmake -S "$LLVM_SRC/llvm" -B "$LLVM_BUILD" \
     -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
     -DLLVM_TARGETS_TO_BUILD="$ISA_UPPER" \
-    -DLLVM_ENABLE_PROJECTS="clang" \
+    -DLLVM_ENABLE_PROJECTS="clang;lld" \
     -DLLVM_ENABLE_ASSERTIONS=OFF \
     -DLLVM_INCLUDE_TESTS=OFF \
     -DLLVM_INCLUDE_EXAMPLES=OFF \
     -DLLVM_INCLUDE_DOCS=OFF \
     2>&1 | tail -10
 
-# ── 5/5: Build clang + llc ───────────────────────────────────────────────────
+# ── 5/5: Build clang + llc + lld ─────────────────────────────────────────────
+# lld is the linker the demo uses (-fuse-ld=lld): the system GNU ld can't link a
+# riscv32 ELF on an x86 host, but one lld links any target. Building it here keeps
+# the generated toolchain self-contained (ld.lld lands next to clang).
 
 NPROC=$(python3 -c "import os; print(os.cpu_count())")
-echo "[5/5] Building clang + llc with ninja -j$NPROC (this takes ~40 min) ..."
-ninja -C "$LLVM_BUILD" -j"$NPROC" clang llc
+echo "[5/5] Building clang + llc + lld with ninja -j$NPROC (this takes ~40 min) ..."
+ninja -C "$LLVM_BUILD" -j"$NPROC" clang llc lld
 
 echo ""
 echo "=== LLVM build complete ==="

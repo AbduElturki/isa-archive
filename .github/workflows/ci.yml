@@ -126,7 +126,7 @@ jobs:
       - name: Install build deps
         run: |
           sudo apt-get update
-          sudo apt-get install -y ninja-build meson pkg-config libglib2.0-dev cmake
+          sudo apt-get install -y ninja-build meson pkg-config libglib2.0-dev cmake lld
 
       - name: ccache
         uses: hendrikmuhs/ccache-action@v1
