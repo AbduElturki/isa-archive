@@ -4,13 +4,12 @@
 isa-archive generate --isa my-isa/isa.yaml -t asm -o build/asm
 ```
 
-Produces two files:
+## Files generated
 
-- **`{isa}_asm.py`** - a self-contained Python assembler. No dependencies, no
-  build step. It knows your mnemonics, your register names *and ABI aliases*,
-  your encodings (including [split immediates](../yaml/schemas.md#split-immediates)),
-  and your machine's load address.
-- **`linker.ld`** - a matching linker script for the `machine:` memory map.
+| File | Purpose |
+|---|---|
+| `{isa}_asm.py` | A self-contained Python assembler (executable, zero dependencies). Knows your mnemonics, register names *and ABI aliases*, encodings (including [split immediates](../../yaml/schemas.md#split-immediates)), and the machine's load address. |
+| `linker.ld` | A matching linker script for the `machine:` memory map (one per output directory). |
 
 ## Assembling
 
@@ -41,7 +40,7 @@ immediate bits.
 ## When this is your whole toolchain
 
 - **Bring-up** - it exists the moment your YAML parses; nothing to build.
-  [Tutorial part 1](../../examples/tutorial/pico32-part1/README.md) runs its
+  [Tutorial part 1](../../../examples/tutorial/pico32-part1/README.md) runs its
   first program this way.
 - **Invented encodings** - if your immediate placements don't match any
   existing architecture, [no stock linker can link your objects](../compiler/build-and-use.md#linking-the-elf-reality);
@@ -51,8 +50,4 @@ immediate bits.
 
 ## Current boundaries
 
-- One program, one placement: no relocatable objects, no cross-file symbols,
-  no archives. For separate compilation and real linking, use the
-  [generated LLVM toolchain](../compiler/build-and-use.md).
-- Constants are evaluated per line; there's no expression language or macro
-  facility.
+This project's boundaries are consolidated in one place - see [Limitations](../../limitations.md#assembler).

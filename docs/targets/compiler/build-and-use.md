@@ -3,7 +3,7 @@
 This is the manual, understand-every-step version. The automated equivalent
 for the bundled pico32 example is `bash examples/tutorial/scripts/02_build_llvm.sh`
 (and `03_run_demo.sh` to compile and run programs).
-[Tutorial part 3](../../examples/tutorial/pico32-part3/README.md) walks this for
+[Tutorial part 3](../../../examples/tutorial/pico32-part3/README.md) walks this for
 an ISA you built yourself.
 
 Prerequisites: `git`, `cmake`, `ninja`. The build is the big one-time cost:
@@ -65,7 +65,7 @@ llvm-build/bin/clang --target=riscv32-unknown-elf -march=rv32i -mabi=ilp32 \
 ```
 
 - `--target=` names the **triple your ISA registered under**
-  (`triple_arch:` in your [ISA manifest](../yaml/isa.md#object-format-identity-triple_arch-elf_machine-)).
+  (`triple_arch:` in your [ISA manifest](../../yaml/isa.md#object-format-identity-triple_arch-elf_machine-)).
   Since only your backend is built into this LLVM, that triple selects *your*
   code generator.
 - `-nostdlib -ffreestanding` - bare metal: no libc, your linker script.
@@ -75,7 +75,7 @@ llvm-build/bin/clang --target=riscv32-unknown-elf -march=rv32i -mabi=ilp32 \
 The program needs a tiny runtime: an entry point that calls `main` and exits
 through your machine's power switch, plus a linker script placing `.text` at
 your `ram_base`. The tutorial's
-[`examples/tutorial/pico32-part3/programs/`](../../examples/tutorial/pico32-part3/programs/)
+[`examples/tutorial/pico32-part3/programs/`](../../../examples/tutorial/pico32-part3/programs/)
 has a complete, commented set (`start.c`, `link.ld`).
 
 ## Linking: the ELF reality
@@ -86,7 +86,7 @@ relocation is the linker's instruction for patching an address into specific
 bits of an instruction - and stock LLD/GNU ld ship with fixed catalogs
 (R_RISCV_*, R_ARM_*, …).
 
-So you have two honest options:
+So you have two viable options:
 
 1. **Reuse an existing architecture's immediate-field placements** - then
    register under its triple (`triple_arch: riscv32`, `elf_machine: 243`)
@@ -97,7 +97,7 @@ So you have two honest options:
 2. **Invent your own placements** - generation works, the compiler works,
    `clang -c` emits objects… and no existing linker can finally link them.
    You keep: the simulator, and the
-   [standalone assembler](../targets/assembler.md) (which assembles and
+   [standalone assembler](../assembler/README.md) (which assembles and
    places programs without a relocating linker). Relocation names that don't
    exist in the LLVM you build against will fail that LLVM build - the
    boundary shows up early, not silently.
@@ -116,12 +116,4 @@ full loop: your YAML compiled your C and your YAML executes it.
 
 ## Current boundaries
 
-- **LLVM version**: the generated C++ is written against LLVM 18.1.8's APIs.
-  Other majors will likely need adjustments in the generated files (LLVM's
-  internal C++ APIs change between releases) - pin 18.1.8.
-- **The relocation ceiling** (above): novel encodings link only via the
-  standalone assembler today.
-- `-march`/`-mabi` flags follow the *triple* you registered under - for
-  `riscv32` use `-march=rv32i -mabi=ilp32` regardless of your actual
-  instruction set; they configure clang's driver, while code generation is
-  entirely your backend.
+This project's boundaries are consolidated in one place - see [Limitations](../../limitations.md#llvm-compiler).

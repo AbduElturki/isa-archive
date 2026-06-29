@@ -1,8 +1,8 @@
-# Part 1 — Hello, pico32
+# Part 1 - Hello, pico32
 
 Four instructions, a UART, a power switch, one real simulator. By the end,
 a program you wrote, in an instruction set you invented, prints a character
-and exits — under QEMU.
+and exits - under QEMU.
 
 The finished files are in this directory; build your own alongside them and
 `diff` when stuck.
@@ -13,19 +13,19 @@ The finished files are in this directory; build your own alongside them and
 $ isa-archive init pico32 --xlen 32 --output-dir .
 Created pico32/ with 3 files.
 
-  isa.yaml          — ISA root (xlen=32, 32 GPRs)
-  layouts.yaml      — RType instruction schema
-  instructions.yaml — ADD instruction
+  isa.yaml          - ISA root (xlen=32, 32 GPRs)
+  layouts.yaml      - RType instruction schema
+  instructions.yaml - ADD instruction
 ```
 
 Open the three files. `isa.yaml` declares the architecture's identity and
 state; `layouts.yaml` has one bit layout; `instructions.yaml` one
-instruction. Every manifest shares the same envelope —
-`apiVersion` / `kind` / `metadata` / `spec` — and that's the whole format.
+instruction. Every manifest shares the same envelope -
+`apiVersion` / `kind` / `metadata` / `spec` - and that's the whole format.
 
 Two edits to `isa.yaml` before we grow it. First, name the registers our way
 (`r0…r31` instead of the scaffold's `x`-prefix), keeping `r0` hardwired to
-zero — and drop the scaffold's ABI aliases; we'll earn those in part 3:
+zero - and drop the scaffold's ABI aliases; we'll earn those in part 3:
 
 ```yaml
   state:
@@ -40,7 +40,7 @@ zero — and drop the scaffold's ABI aliases; we'll earn those in part 3:
 ## The machine
 
 A CPU is no fun without somewhere to live. Add a `machine:` block to
-`spec:` — this becomes a QEMU board:
+`spec:` - this becomes a QEMU board:
 
 ```yaml
   machine:
@@ -53,14 +53,14 @@ A CPU is no fun without somewhere to live. Add a `machine:` block to
         - { name: poweroff, type: sifive_test, base: 0x00100000 }
 ```
 
-Two memory-mapped devices: an `ns16550` UART — store a byte to
-`0x10000000` and it appears on your terminal — and a `sifive_test` power
-switch — store `0x5555` to `0x00100000` and QEMU exits with status 0.
+Two memory-mapped devices: an `ns16550` UART - store a byte to
+`0x10000000` and it appears on your terminal - and a `sifive_test` power
+switch - store `0x5555` to `0x00100000` and QEMU exits with status 0.
 
 ## Three more instructions
 
 `ADD` can't print anything. To write a byte to the UART we need to **build an
-address** (it's `0x10000000` — too big for any immediate field), **make a
+address** (it's `0x10000000` - too big for any immediate field), **make a
 byte**, and **store it**. That's `LUI`, `ADDI`, and `SW`.
 
 Add the layouts to `layouts.yaml` (the scaffold's RType stays as is):
@@ -71,7 +71,7 @@ apiVersion: isa-archive/v1
 kind: Schema
 metadata:
   name: ITypeALU
-  description: Register-immediate — rd ← rs1 op sext(imm12)
+  description: Register-immediate - rd ← rs1 op sext(imm12)
 spec:
   length: 32
   fields:
@@ -86,7 +86,7 @@ apiVersion: isa-archive/v1
 kind: Schema
 metadata:
   name: UType
-  description: Upper immediate — 20 bits destined for the top of a register
+  description: Upper immediate - 20 bits destined for the top of a register
 spec:
   length: 32
   fields:
@@ -99,7 +99,7 @@ apiVersion: isa-archive/v1
 kind: Schema
 metadata:
   name: SType
-  description: Store — the 12-bit offset is split across two fields
+  description: Store - the 12-bit offset is split across two fields
 spec:
   length: 32
   fields:
@@ -116,10 +116,10 @@ Each field names its bits (`start` = least-significant bit) and its **role**:
 register file, `immediate` fields carry values. Field *names* are how
 behaviors will refer to them.
 
-SType smuggles in one powerful idea: the store offset is **split** — bits 4:0
+SType smuggles in one powerful idea: the store offset is **split** - bits 4:0
 live at position 7, bits 11:5 at position 25 (so the register fields can stay
 in the same place across all layouts). Name the pieces `imm_<hi>_<lo>` and
-the tool reassembles them everywhere — decoder, assembler, compiler. More in
+the tool reassembles them everywhere - decoder, assembler, compiler. More in
 [the schema reference](../../../docs/yaml/schemas.md#split-immediates).
 
 Now the instructions, in `instructions.yaml`:
@@ -143,7 +143,7 @@ apiVersion: isa-archive/v1
 kind: Instruction
 metadata:
   name: LUI
-  description: Load upper immediate — set the top 20 bits of a register
+  description: Load upper immediate - set the top 20 bits of a register
 spec:
   schema: UType
   opcode: 0x37
@@ -166,11 +166,11 @@ spec:
 
 Read the behaviors aloud:
 
-- `rd = rs1 + imm` — field names are variables; `imm` was declared `signed`,
+- `rd = rs1 + imm` - field names are variables; `imm` was declared `signed`,
   so it sign-extends.
-- `rd = zext(imm) << 12` — zero-extend the 20-bit immediate, shift it into
+- `rd = zext(imm) << 12` - zero-extend the 20-bit immediate, shift it into
   the top: `LUI r1, 0x10000` puts `0x10000000` in `r1`. There's our UART base.
-- `mem32[rs1 + {imm_11_5, imm_4_0}] = rs2` — `{a, b}` is bit concatenation,
+- `mem32[rs1 + {imm_11_5, imm_4_0}] = rs2` - `{a, b}` is bit concatenation,
   reassembling the split offset; `mem32[...]` on the left of `=` is a store.
 
 The full language: [the behavior DSL](../../../docs/yaml/behavior.md).
@@ -184,11 +184,11 @@ Validated pico32/isa.yaml
 ```
 
 Worth thirty seconds: break it on purpose. Misspell a key (`widht: 5`),
-overlap two fields, give two instructions the same opcode — every mistake is
+overlap two fields, give two instructions the same opcode - every mistake is
 a named, located error. The validator is the safety net the rest of the
 tutorial leans on.
 
-## Build the simulator (one time, ~10–20 min)
+## Build the simulator (one time, ~10-20 min)
 
 ```sh
 $ isa-archive generate --isa pico32/isa.yaml -t qemu -o build/qemu-gen
@@ -240,10 +240,10 @@ switch. Save as `hello.s`:
     sw    r3, r4, 0         # power off
 ```
 
-Note the `0x5555` construction: LUI gives the top, ADDI adds the bottom —
+Note the `0x5555` construction: LUI gives the top, ADDI adds the bottom -
 the exact idiom the C compiler will use for every large constant in part 3.
 
-Assemble with the [generated assembler](../../../docs/targets/assembler.md) and run:
+Assemble with the [generated assembler](../../../docs/targets/assembler/README.md) and run:
 
 ```sh
 $ isa-archive generate --isa pico32/isa.yaml -t asm -o build/asm
@@ -261,14 +261,14 @@ $ echo $?
 
 ## Current boundaries (of this 4-instruction CPU)
 
-- **No branches** → no loops, no decisions. Part 2 fixes that.
+- **No branches** -> no loops, no decisions. Part 2 fixes that.
 - **The program "ends" by power-off.** After the final `sw`, the CPU would
-  run into empty memory and hit an illegal instruction — the model halts the
+  run into empty memory and hit an illegal instruction - the model halts the
   CPU cleanly (visible with `-d guest_errors`) while the power-off completes.
   Once part 2 adds jumps, well-mannered programs spin (`jal r0, 0`) instead
   of falling off the edge.
-- **Every ISA change needs a QEMU rebuild** — but from now on it's
-  incremental: regenerate, re-patch, `ninja` — about ten seconds. Part 2
+- **Every ISA change needs a QEMU rebuild** - but from now on it's
+  incremental: regenerate, re-patch, `ninja` - about ten seconds. Part 2
   relies on that loop.
 
-[**Part 2: a real instruction set →**](../pico32-part2/README.md)
+[**Part 2: a real instruction set ->**](../pico32-part2/README.md)

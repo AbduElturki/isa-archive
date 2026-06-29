@@ -55,14 +55,14 @@ def _resolve_reg_classes(isa_reg, xlen: int, ISA: str) -> dict:
     plus a few internals (``skip_regfiles``, ``first_reg``) the caller needs.
     """
     # Only files whose element type can be a first-class LLVM value type on this
-    # target become register classes — integer files of the data width, float
+    # target become register classes - integer files of the data width, float
     # files, or files with an explicit legacy `value_types` override. Everything
     # else (1-bit predicates, >xlen accumulators/vectors, …) stays architectural
     # state: making e.g. MVT::i1 or MVT::i128 legal via addRegisterClass breaks
     # codegen globally. Instructions touching excluded files are omitted (warned).
     def _is_codegen_class(reg) -> bool:
         if getattr(reg, "value_types", None) and not getattr(reg, "type", None):
-            return True  # explicit legacy override — trust the author
+            return True  # explicit legacy override - trust the author
         # A ScalarType with no `llvm_mvt` has no LLVM value type → its files can't be
         # register classes (simulator-only), the "LLVM optional" case.
         from ...models.scalar_types import of_register
@@ -178,7 +178,7 @@ def _resolve_opcodes(instr_defs: list, compiler_roles: dict, xlen: int,
     has_select = bool(bne_opcode and zero_reg)
     # Materializing a comparison into a 0/1 register normally needs a set-less-than
     # instruction; an ISA that only branches on comparisons can still do it with a
-    # branch diamond — but only if it can make a 1 (add-immediate) and a 0 (zero).
+    # branch diamond - but only if it can make a 1 (add-immediate) and a 0 (zero).
     setcc_branch_entries = (
         _setcc_branch_entries(compiler_roles) if not (slt_opcode or sltu_opcode) else [])
     setcc_via_branch = bool(setcc_branch_entries and zero_reg and addi_opcode)
@@ -382,7 +382,7 @@ def _emit_coverage(isa_reg, ISA: str, ctx: dict, role_conflicts: list,
         required = set(profile_spec.requires)
 
     # Non-role prerequisites: lowering C needs the CPU register conventions
-    # declared explicitly (sp, ra, zero) — never invented positionally.
+    # declared explicitly (sp, ra, zero) - never invented positionally.
     missing_prereqs: list[str] = []
     if profile == "c-baremetal":
         for prereq, val in (("alias:sp", ctx["sp_reg"]), ("alias:ra", ctx["ra_reg"]),
@@ -405,7 +405,7 @@ def _emit_coverage(isa_reg, ISA: str, ctx: dict, role_conflicts: list,
     write_generated(target / ".clang-format", CLANG_FORMAT_LLVM)
     if missing_required:
         logger.warning(
-            "%s: compiler backend INCOMPLETE for profile '%s' — missing: %s "
+            "%s: compiler backend INCOMPLETE for profile '%s' - missing: %s "
             "(see COMPILER_COVERAGE.md)", ISA, profile, ", ".join(missing_required))
         if strict:
             raise ValueError(

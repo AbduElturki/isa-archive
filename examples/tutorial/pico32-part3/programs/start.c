@@ -1,4 +1,4 @@
-/* start.c — bare-metal entry point for the pico32-virt machine.
+/* start.c - bare-metal entry point for the pico32-virt machine.
  *
  * The QEMU machine pre-initializes r2 (sp) to the top of RAM before
  * execution begins (because the ISA declares the `sp` alias), so we can

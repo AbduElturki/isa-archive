@@ -28,8 +28,8 @@ runs on the generated `qemu-system-pico32`.
 | **Build your own ISA from scratch** | [**The pico32 tutorial**](../examples/tutorial/README.md) |
 | Look up a YAML field or kind | [Manifest reference](yaml/README.md) |
 | Understand the big picture first | [Concepts](getting-started/concepts.md) |
-| Build & run the QEMU simulator | [QEMU guide](qemu/README.md) |
-| Build & use the C compiler | [Compiler guide](compiler/README.md) |
+| Build & run the QEMU simulator | [QEMU guide](targets/qemu/README.md) |
+| Build & use the C compiler | [Compiler guide](targets/compiler/README.md) |
 | See what each example demonstrates | [Examples tour](examples.md) |
 | Understand the code / contribute | [Developer docs](development/README.md) |
 
@@ -53,15 +53,16 @@ runs on the generated `qemu-system-pico32`.
 - [The behavior DSL](yaml/behavior.md) - how instruction semantics are written
 
 **Guides**
-- [QEMU: the generated simulator](qemu/README.md) and [building & running it](qemu/build-and-run.md)
-- [LLVM: the generated compiler](compiler/README.md), [compiler roles & the coverage report](compiler/roles-and-coverage.md), and [building & using clang](compiler/build-and-use.md)
+- [QEMU: the generated simulator](targets/qemu/README.md) and [building & running it](targets/qemu/build-and-run.md)
+- [LLVM: the generated compiler](targets/compiler/README.md), [compiler roles & the coverage report](targets/compiler/roles-and-coverage.md), and [building & using clang](targets/compiler/build-and-use.md)
 
 **Other generation targets** ([overview](targets/README.md))
-- [Standalone assembler](targets/assembler.md) · [C/Rust intrinsics](targets/intrinsics.md) · [SystemVerilog](targets/verilog.md) · [Reference manuals](targets/reference-manuals.md) · [C++ ISA headers](targets/cpp-isa.md)
+- [Standalone assembler](targets/assembler/README.md) · [C/Rust intrinsics](targets/intrinsics/README.md) · [SystemVerilog](targets/verilog/README.md) · [Reference manuals](targets/reference-manuals/README.md) · [C++ ISA headers](targets/cpp-isa/README.md)
 
 **Reference**
 - [CLI reference](cli.md) - every command, flag, and target
 - [Examples tour](examples.md) - what each `examples/` directory demonstrates
+- [Limitations](limitations.md) - every current boundary, by tool area and by target, in one place
 
 **Developer docs** (how it's built, how to contribute)
 - [Architecture](development/architecture.md) - the pipeline and the modules

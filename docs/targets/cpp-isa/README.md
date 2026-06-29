@@ -9,21 +9,23 @@ Standalone, header-only **C++17** that *describes* your ISA - the enums, decode 
 per-instruction metadata - so you can drop one shared definition into your own C++ code. It is
 **opt-in** (not part of `-t all`).
 
-Produces, per ISA, in `<out>/<isa>/`:
+## Files generated
 
-| File | Contents |
+Per ISA, in `<out>/<Isa>/` (`<Isa>` is the ISA name in PascalCase - `npu-probe` → `NpuProbe`; the
+C++ namespace is the lowercase `npu_probe`):
+
+| File | Purpose |
 |---|---|
-| `<Isa>Enums.h` | `enum class Op` (one per instruction) + `mnemonic()`; `RegClass` + `reg_class_name()`; `Category` (from each instruction's `exec_type`); `OperandKind`. For register files typed with a custom [`ScalarType`](../yaml/types.md), a `using <file>_elem_t = …;` typedef and its `#include`. |
+| `<Isa>.h` | Umbrella header - `#include` this; it pulls in the four below. |
+| `<Isa>Enums.h` | `enum class Op` (one per instruction) + `mnemonic()`; `RegClass` + `reg_class_name()`; `Category` (from each instruction's `exec_type`); `OperandKind`. For register files typed with a custom [`ScalarType`](../../yaml/types.md), a `using <file>_elem_t = …;` typedef and its `#include`. |
 | `<Isa>InstrInfo.h` | `struct InstrInfo` / `OperandInfo` and an `info(Op)` table: opcode, `mask`/`match`, operands (name, bit range, kind, register class), category, `exec_type`, the source `behavior:` string, and `latency`. |
-| `<Isa>Decoder.h` | `Op decode(word)` (most-specific match first), `get_bits()` / `sext()`, and `decode_imm(Op, word)` that reassembles split and signed immediates. Words wider than 64 bits use a little-endian byte-array `Word` plus a `get_bits_wide()` accessor for fields that don't fit in 64 bits (see below). |
+| `<Isa>Decoder.h` | `Op decode(word)` (most-specific match first), `get_bits()` / `sext()`, and `decode_imm(Op, word)` that reassembles split and signed immediates. Words wider than 64 bits use a little-endian byte-array `Word` plus a `get_bits_wide()` accessor (see below). |
 | `<Isa>Encoder.h` | `encode_<OP>(operands…) -> word`, one inline function per instruction - the **inverse** of the decoder. Sets the fixed bits from the manifest and places each register index / immediate (distributing split immediates) into its schema field. |
-| `<Isa>.h` | umbrella header - includes the four above. |
+| `example_main.cpp` | A runnable usage sketch (decode a word, inspect its fields). |
+| `INTEGRATE.md` | Step-by-step adoption notes. |
 
-`<Isa>` is the ISA name in PascalCase (`npu-probe` → `NpuProbe`); the C++ namespace is the
-lowercase form (`npu_probe`).
-| `example_main.cpp`, `INTEGRATE.md` | a usage sketch and step-by-step adoption notes. |
-
-A `.clang-format` is written beside them; pass `--clang-format` to format the output in place.
+A `.clang-format` (LLVM style) is also written at the **output root**, beside the `<Isa>/` folder;
+pass `--clang-format` to format the headers in place.
 
 Include the umbrella and you have the whole description:
 
@@ -69,15 +71,12 @@ For instruction words up to 64 bits the `Word` is a plain `uint64_t`. For wider 
 
 ## Custom element types
 
-A register file whose element is a [`kind: ScalarType`](../yaml/types.md) with a `cpp_type` /
+A register file whose element is a [`kind: ScalarType`](../../yaml/types.md) with a `cpp_type` /
 `cpp_include` gets a `using <file>_elem_t = <cpp_type>;` typedef in `<Isa>Enums.h`, and the header
 is `#include`d so the typedef resolves. The bundled
-[`npu-probe`](../../examples/npu-probe/) example does this for its `fp8_e4m3` tile/vector files
+[`npu-probe`](../../../examples/npu-probe/) example does this for its `fp8_e4m3` tile/vector files
 (`#include <npu_fp8.h>`, `using qreg_elem_t = fp8e4m3_t;`).
 
 ## Current boundaries
 
-- Descriptive only - `behavior:` is a string, not generated code; multi-statement or exotic
-  behaviors are not decomposed into anything beyond that string.
-- You supply any headers your custom element types name (the generated `#include` just references
-  them).
+This project's boundaries are consolidated in one place - see [Limitations](../../limitations.md#c-isa-headers).

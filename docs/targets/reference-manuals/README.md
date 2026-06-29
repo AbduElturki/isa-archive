@@ -8,18 +8,28 @@ isa-archive generate --isa my-isa/isa.yaml -t docs -f all  -o build/manual   # a
 ```
 
 Each format is also addressable as a sub-target - `-t docs-md`, `-t docs-html`,
-`-t docs-pdf` - the form a [Project](../yaml/project.md) manifest uses to pin one
+`-t docs-pdf` - the form a [Project](../../yaml/project.md) manifest uses to pin one
 format per output path.
 
 **Preview the bundled examples.** `bash examples/view-docs.sh` generates the HTML
 manuals for pico32 and npu-probe and serves them on `http://localhost:8000`
 (pass a port, e.g. `bash examples/view-docs.sh 9000`).
 
-Produces `{isa}_reference.md` / `.html` / `.pdf` - a human-readable
-architecture manual generated from the same manifests as the toolchain:
+## Files generated
+
+One file per requested `--format` (`md` is the default; `-f all` writes all three):
+
+| File | Purpose |
+|---|---|
+| `{isa}_reference.md` | Markdown manual |
+| `{isa}_reference.html` | styled, standalone HTML manual |
+| `{isa}_reference.pdf` | print-ready PDF (rendered from the HTML via WeasyPrint) |
+
+Each is the same human-readable architecture manual, generated from the same manifests as the
+toolchain:
 
 - per-instruction pages: encoding diagram (bit positions from the
-  [schema](../yaml/schemas.md)), operands, and semantics,
+  [schema](../../yaml/schemas.md)), operands, and semantics,
 - the register files and their ABI aliases,
 - CSR tables with field layouts and access modes,
 - operand-struct layouts.
@@ -37,12 +47,9 @@ spec:
 ```
 
 Write them as you go and the manual stays current for free; the
-[quickstart](../getting-started/quickstart.md#2-generate-a-reference-manual)
+[quickstart](../../getting-started/quickstart.md#2-generate-a-reference-manual)
 generates one for the bundled RISC-V example in one command.
 
 ## Current boundaries
 
-- PDF output uses WeasyPrint (installed with the tool); complex/very large
-  ISAs render noticeably slower as PDF than HTML.
-- The manual reflects what the manifests declare - behaviors are shown as
-  written, not decompiled into prose.
+This project's boundaries are consolidated in one place - see [Limitations](../../limitations.md#reference-manuals).

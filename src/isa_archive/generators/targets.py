@@ -1,4 +1,4 @@
-"""Target taxonomy — the single source of truth mapping every target / sub-target
+"""Target taxonomy - the single source of truth mapping every target / sub-target
 name to the generator call that produces it. Shared by the `generate -t` CLI flag
 and the Project `build` command.
 

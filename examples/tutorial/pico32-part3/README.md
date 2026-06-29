@@ -1,6 +1,6 @@
-# Part 3 — Compiling C
+# Part 3 - Compiling C
 
-No new instructions this part. The thirteen we have are enough — what's
+No new instructions this part. The thirteen we have are enough - what's
 missing is *meaning*: which registers hold arguments, which instruction
 adjusts the stack, how to build a constant. We declare that, generate an LLVM
 backend, build it once, and compile real C.
@@ -9,17 +9,17 @@ The finished files are in this directory.
 
 ## What a C compiler needs from an ISA
 
-The checklist (this is the `c-baremetal` contract — [details](../../../docs/compiler/README.md#what-complete-means-target-profiles)):
+The checklist (this is the `c-baremetal` contract - [details](../../../docs/targets/compiler/README.md#what-complete-means-target-profiles)):
 
-1. **ABI names** — `zero`, `ra`, `sp`, argument and saved registers.
-2. **Roles** — which instruction is the add, the word load, the stack
+1. **ABI names** - `zero`, `ra`, `sp`, argument and saved registers.
+2. **Roles** - which instruction is the add, the word load, the stack
    adjuster, the constant builder. Mostly inferred; a few declared.
-3. **An object-format identity** — what the ELF files claim to be, so a
+3. **An object-format identity** - what the ELF files claim to be, so a
    linker will touch them.
 
 ## 1. Name the registers
 
-In `isa.yaml`, give the register file its ABI aliases — and add the profile
+In `isa.yaml`, give the register file its ABI aliases - and add the profile
 declaration while we're here:
 
 ```yaml
@@ -56,7 +56,7 @@ spec:
     frame_pointer: s0
 ```
 
-Aliases are never invented for you — no `sp` alias, no stack, and the
+Aliases are never invented for you - no `sp` alias, no stack, and the
 coverage report would say `missing: alias:sp`. Side benefit: the QEMU board
 now pre-loads `sp` with the top of RAM at reset, so C can run without
 assembly startup code.
@@ -69,15 +69,15 @@ out of the `if`s, `JAL`/`JALR` are the jumps. Three conventions can't be
 inferred, because they're choices, not semantics:
 
 ```yaml
-# LUI — "use me for the top half of constants and addresses"
+# LUI - "use me for the top half of constants and addresses"
   compiler:
     roles: [const.hi, global.hi]
 
-# ADDI — "…and me for the low half, and for stack adjustment"
+# ADDI - "…and me for the low half, and for stack adjustment"
   compiler:
     roles: [const.lo, global.lo, frame.sp_adjust]
 
-# JAL / JALR — calling convention duties
+# JAL / JALR - calling convention duties
   compiler:
     roles: [control.jump, control.call]          # on JAL
   compiler:
@@ -85,9 +85,9 @@ inferred, because they're choices, not semantics:
 ```
 
 Remember part 1's `hello.s` building `0x5555` with `LUI`+`ADDI`? You just
-taught the compiler that exact idiom — from ADDI's sign-extending behavior it
+taught the compiler that exact idiom - from ADDI's sign-extending behavior it
 infers the `hi_lo_add` materialization strategy
-([how that works](../../../docs/compiler/roles-and-coverage.md#constant-materialization--a-worked-contrast)).
+([how that works](../../../docs/targets/compiler/roles-and-coverage.md#constant-materialization--a-worked-contrast)).
 
 ## 3. Declare the object format
 
@@ -103,7 +103,7 @@ pico32's field placements match RISC-V's, so we borrow its triple and
 relocations, and stock LLD links our programs. The mnemonics, opcode values,
 and register names in those object files are still entirely pico32.
 
-## 4. Generate — and read your scorecard
+## 4. Generate - and read your scorecard
 
 ```sh
 $ isa-archive generate --isa pico32/isa.yaml -t llvm -o build/llvm-gen --strict
@@ -123,11 +123,11 @@ Open `build/llvm-gen/llvm/lib/Target/PICO32/COMPILER_COVERAGE.md`:
 **STATUS: COMPILER-COMPLETE ✓** (profile `c-baremetal`)
 ```
 
-The ✗s are honest: pico32 has no AND, no shifts, no byte loads. COMPLETE
+The ✗s are accurate: pico32 has no AND, no shifts, no byte loads. COMPLETE
 means the *required* core is there; C that needs the missing ops is
 constrained accordingly (see boundaries below). `--strict` makes this a hard
-gate — wire it into CI and an ISA edit can never silently break the
-compiler. ([Reading the report in full.](../../../docs/compiler/roles-and-coverage.md))
+gate - wire it into CI and an ISA edit can never silently break the
+compiler. ([Reading the report in full.](../../../docs/targets/compiler/roles-and-coverage.md))
 
 ## 5. Build LLVM (one time, ~40–60 min)
 
@@ -167,7 +167,7 @@ $ echo $?
 ```
 
 C source → your compiler → your linker → your simulator → correct answer.
-Look at what the compiler actually wrote — `clang -S` shows pure pico32, your
+Look at what the compiler actually wrote - `clang -S` shows pure pico32, your
 thirteen instructions and `r`-registers doing register allocation, loops, and
 calling convention:
 
@@ -190,21 +190,21 @@ fib:
 - **The C you compile is bounded by your ISA.** pico32 deliberately has a
   small instruction set, and the compiler can only build C from instructions
   you gave it. Multiply/divide (`*`, `/`) become compiler-runtime calls
-  (`__mulsi3`) — a clear *link* error under `-nostdlib` until Part 4 adds
+  (`__mulsi3`) - a clear *link* error under `-nostdlib` until Part 4 adds
   `MUL`. Bitwise AND and shifts have no pico32 instruction, so C that needs
   them (including patterns the optimizer rewrites *into* a shift, like the
   signed `x < 0` sign-test) won't compile. This directory's `fib.c` deliberately
   sticks to what the ISA can do.
-- **Comparisons as values do work** — `int flag = (a < b);` and the other
+- **Comparisons as values do work** - `int flag = (a < b);` and the other
   nine comparison forms compile, even though pico32 has no set-less-than
   instruction: the backend builds the 0/1 result with the same conditional
   branches it uses for control flow. (An ISA *with* a set-less-than
   instruction uses that directly instead.)
 - Byte/halfword memory access is synthesized from word accesses (pico32 has
-  no `LB`/`SB`) — correct, just not compact.
+  no `LB`/`SB`) - correct, just not compact.
 - `-march=rv32i -mabi=ilp32` configure clang's *driver* for the borrowed
   triple; code generation is entirely your backend.
 - The full linking story and the LLVM version pin:
-  [the compiler build guide](../../../docs/compiler/build-and-use.md).
+  [the compiler build guide](../../../docs/targets/compiler/build-and-use.md).
 
 [**Part 4: growing the ISA →**](../pico32-part4/README.md)

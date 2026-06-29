@@ -28,7 +28,7 @@ def _build_instr_defs(isa_reg, ISA_upper: str,
         r.name: {"class": r.name.upper(), "is_float": r.is_float}
         for r in isa_reg.registers
     }
-    # Width/float of each register file, keyed by file name — used to populate
+    # Width/float of each register file, keyed by file name - used to populate
     # the language-agnostic structured operand metadata below (`out_ops`/`in_*`),
     # which downstream generators (e.g. the C/Rust intrinsics) consume.
     reg_meta = {r.name: {"width": r.width, "is_float": r.is_float}
@@ -165,7 +165,7 @@ def _build_instr_defs(isa_reg, ISA_upper: str,
 
         # A TableGen pattern must cover every non-fixed operand; an instruction
         # with extra operands the behavior never mentions (predicate/hint fields)
-        # would otherwise be a hard TableGen build error. Demote to custom — the
+        # would otherwise be a hard TableGen build error. Demote to custom - the
         # category must drop too, or role inference would bind this instruction
         # to a role (spill, sp-adjust, …) whose expected operand shape it lacks.
         if dag_pattern:

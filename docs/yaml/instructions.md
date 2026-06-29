@@ -62,7 +62,7 @@ Verilog generator consumes it - omit it until you generate hardware.
 ## `compiler.roles`
 
 Instruction-level role tags, the most specific layer of the
-[role system](../compiler/roles-and-coverage.md). You rarely need them - most
+[role system](../targets/compiler/roles-and-coverage.md). You rarely need them - most
 roles are inferred from the behavior. The classic exceptions (constant
 materialization, stack adjustment) look like:
 
@@ -81,15 +81,4 @@ in generated code.
 
 ## Current boundaries
 
-- A behavior the DSL can't express fails generation **loudly, naming the
-  instruction**:
-
-  ```
-  Error: pico32: QEMU generation failed for 1 instruction(s):
-    - instruction 'WEIRD': Unsupported syntax in behavior: 'while x: ...'
-  ```
-
-  The supported constructs are listed in [behavior.md](behavior.md).
-- A behavior the *compiler* can't turn into a selection pattern still
-  simulates fine; the instruction is listed under "Custom-lowered
-  instructions" in `COMPILER_COVERAGE.md` with the reason.
+This project's boundaries are consolidated in one place - see [Limitations](../limitations.md#behavior-dsl).

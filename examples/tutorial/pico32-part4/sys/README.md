@@ -1,7 +1,7 @@
-# pico32sys — control/status registers + traps
+# pico32sys - control/status registers + traps
 
 An extension layer (`extends: ../isa.yaml`) that declares pico32's
-**control/status registers** and the **system instructions that use them** —
+**control/status registers** and the **system instructions that use them** -
 taking a trap, returning from one, and reading/writing CSRs. Because this layer
 adds no register file of its own, it inherits pico32's `gpr` file, ABI, triple
 and machine unchanged, and *adds* to its instruction set.
@@ -34,7 +34,7 @@ instructions (opcode `SYSTEM`, 0x73) make the state usable:
 | `CSRR_CAUSE` | `rd = csr.mcause`            | read the trap cause |
 | `CSRR_MIE`   | `rd = zext(csr.mstatus.mie)` | read one CSR field |
 
-The QEMU helpers contain the real trap sequence — inspect them with:
+The QEMU helpers contain the real trap sequence - inspect them with:
 
 ## Try it
 
@@ -49,7 +49,7 @@ uv run isa-archive generate -i isa.yaml -t docs     -o build/sys-docs
 Hardware interrupts are delivered too: the generated QEMU CPU vectors an external
 IRQ (and synchronous exceptions) through the trap CSRs instead of halting, and the
 machine declares an `irq_test` device whose register raises the CPU's IRQ line.
-[`programs/irq.c`](programs/irq.c) is a runnable demo — it points `mtvec` at an
+[`programs/irq.c`](programs/irq.c) is a runnable demo - it points `mtvec` at an
 ISR, enables `mstatus.mie`, writes the device to take an interrupt, and exits PASS.
 See that file's header for the exact build/run command (needs `-march=rv32i_zicsr`).
 
@@ -61,4 +61,4 @@ See that file's header for the exact build/run command (needs `-march=rv32i_zics
 - CSR access is to a CSR fixed per instruction; a single `csrrw` that selects
   its CSR from a runtime immediate isn't modeled yet.
 - `ECALL`/`MRET`/CSR instructions are simulator-side (custom-lowered in the LLVM
-  backend) — you reach them from C via inline assembly, not codegen.
+  backend) - you reach them from C via inline assembly, not codegen.

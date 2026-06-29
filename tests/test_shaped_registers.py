@@ -1,4 +1,4 @@
-"""General structured (shaped) registers: element type + shape — the DSL element
+"""General structured (shaped) registers: element type + shape - the DSL element
 indexing, QEMU N-D storage/lowering, loader validation, and LLVM vector classes."""
 import ast
 import pathlib

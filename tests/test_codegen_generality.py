@@ -349,7 +349,7 @@ def test_kernel_only_profile_is_complete_without_stack(tmp_path):
 
 def test_c_baremetal_requires_declared_aliases(tmp_path):
     # Alias-less ISA under the default profile: sp/ra/zero are NOT invented
-    # positionally any more — they show up as missing prerequisites.
+    # positionally any more - they show up as missing prerequisites.
     with pytest.raises(ValueError) as e:
         generate_llvm(_profile_registry(), str(tmp_path), strict=True)
     msg = str(e.value)
@@ -602,7 +602,7 @@ def test_qemu_over_512_bit_insn_rejected(tmp_path):
 
 def test_decode_chunks_fields_wider_than_64_bits(tmp_path):
     # A 320-bit instruction with a >64-bit constant and a >64-bit reserved field.
-    # get_bits returns uint64_t, so such fields must be matched in <=64-bit chunks —
+    # get_bits returns uint64_t, so such fields must be matched in <=64-bit chunks -
     # otherwise bits >= 64 are silently ignored (a decode-correctness bug).
     BIGVAL = (2 << 64) | 7  # 67-bit constant: low 64 bits = 7, next bits = 2
     schema = Schema(

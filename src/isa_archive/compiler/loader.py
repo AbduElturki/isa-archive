@@ -31,7 +31,7 @@ class ISARegistry:
         self.registers = manifest.spec.state.registers
         self.arch_csrs = manifest.spec.state.csrs
         self.trap = manifest.spec.trap  # trap/exception wiring (or None)
-        # Machine layout — from YAML if provided, else default values
+        # Machine layout - from YAML if provided, else default values
         self.machine: MachineLayout = manifest.spec.machine or MachineLayout()
 
     def add(self, manifest: ManifestBase, source_file: str = "") -> None:
@@ -84,7 +84,7 @@ class ISARegistry:
 
     def _validate_register_types(self):
         """A register file's `type:` must name a known scalar type (built-in or a
-        declared `kind: ScalarType`) or an Operand struct — catches typos that
+        declared `kind: ScalarType`) or an Operand struct - catches typos that
         would otherwise silently fall back to opaque integer storage."""
         for reg in self.registers:
             t = getattr(reg, "type", None)
@@ -237,7 +237,7 @@ class ISARegistry:
             if not any(f.role == FieldRole.OPCODE for f in schema.spec.fields):
                 raise ValueError(
                     f"Schema '{schema.metadata.name}' used by instruction '{instr.metadata.name}' "
-                    f"has no field with role='opcode' — every schema must have at least one opcode field"
+                    f"has no field with role='opcode' - every schema must have at least one opcode field"
                     f"{self._src(schema.metadata.name)}"
                 )
 
@@ -371,7 +371,7 @@ class ISARegistry:
             details = ", ".join(f"'{n}'={w}b" for n, w in sorted(opcode_widths.items()))
             logger.warning(
                 f"ISA '{self.name}': schemas have inconsistent opcode field widths ({details}) "
-                f"— verify this is intentional"
+                f"- verify this is intentional"
             )
 
 
@@ -438,7 +438,7 @@ def load_isa(isa_path: str, global_registry: Optional[Registry] = None) -> ISARe
         # Spec-level identity is inherited too, unless the extension explicitly
         # sets it (pydantic's model_fields_set distinguishes "set to the
         # default" from "not set"). Without this, an extension silently lost
-        # its base's xlen/ABI/machine/triple — e.g. its LLVM backend would
+        # its base's xlen/ABI/machine/triple - e.g. its LLVM backend would
         # register under a Triple that doesn't exist and fail to build.
         base_spec = base_isa_reg.manifest.spec
         spec = isa_manifest.spec
@@ -537,7 +537,7 @@ def load_project(project_path: str, global_registry: Optional[Registry] = None):
     """Load a `kind: Project` manifest: parse it, then load every ISA and uArch it
     references (paths relative to the project file) into a Registry.
 
-    Returns ``(registry, project, project_dir, requested_isa_names)`` — the last is
+    Returns ``(registry, project, project_dir, requested_isa_names)`` - the last is
     the names of the explicitly-listed ISAs (an ``extends:`` base is also loaded so
     an extension can resolve, but it is not in this list).
     """

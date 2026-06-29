@@ -10,7 +10,7 @@ class CompilerProfile(StrictModel):
     considered complete, and whether CPU conveniences (a stack pointer, calls,
     globals) are expected at all:
 
-    - ``c-baremetal`` (default): the current contract — the backend must lower
+    - ``c-baremetal`` (default): the current contract - the backend must lower
       freestanding C: full ALU, full-word load/store, branches, calls, a stack.
       Missing sp/ra aliases are an error rather than silently invented.
     - ``kernel-only``: a compute target (GPU/NPU style). Nothing is required;

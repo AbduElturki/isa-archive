@@ -165,7 +165,7 @@ class LLVMDagBackend:
 
     def _contig_base(self, addr: ast.AST, loopvar: str, esize: int) -> Optional[str]:
         """If `addr` is `base + loopvar*esize` (or `base + loopvar` when esize==1)
-        with `base` a scalar register, return base's name — i.e. a contiguous,
+        with `base` a scalar register, return base's name - i.e. a contiguous,
         unit-stride address over the loop. Else None."""
         if not (isinstance(addr, ast.BinOp) and isinstance(addr.op, ast.Add)):
             return None
@@ -254,7 +254,7 @@ class LLVMDagBackend:
         # report lists them instead of attempting a pattern.
         if ir.uses_sys:
             return DagPattern(category="custom",
-                              notes=["CSR / system instruction — custom lowering"])
+                              notes=["CSR / system instruction - custom lowering"])
 
         # Unconditional jump to register+imm  (JALR pattern)
         if ir.modifies_pc and ir.is_unconditional_jump:
@@ -263,7 +263,7 @@ class LLVMDagBackend:
         # Conditional branch
         if ir.modifies_pc and not ir.is_unconditional_jump:
             return DagPattern(category="branch", dag=None,
-                              notes=["conditional branch — TableGen Pat<> pattern"])
+                              notes=["conditional branch - TableGen Pat<> pattern"])
 
         # Memory store: Assign where target is a Subscript (mem32[...] = rs2)
         if (len(ir.tree.body) == 1 and isinstance(ir.tree.body[0], ast.Assign)
@@ -302,7 +302,7 @@ class LLVMDagBackend:
                         dag=f"(brind (add {self._class_of(lname)}:${lname}, "
                             f"{self._imm_type(imm_arg)}:${imm_arg}))",
                     )
-                # "pc = pc + imm" — PC-relative unconditional jump (JAL-style)
+                # "pc = pc + imm" - PC-relative unconditional jump (JAL-style)
                 # No simple TableGen pattern; handled via ISD::BR in ISelDAGToDAG.
                 if lname == "pc":
                     return DagPattern(
@@ -352,7 +352,7 @@ class LLVMDagBackend:
                     )
                 if width == self.xlen:
                     # Full-width: a plain non-extending load. (zextloadiN with
-                    # N == the result width never matches — natural loads are
+                    # N == the result width never matches - natural loads are
                     # NON_EXTLOAD, so LW-style instructions would be unselectable.)
                     signed, ld = False, "load"
                 elif width > self.xlen:
@@ -407,9 +407,9 @@ class LLVMDagBackend:
                 dag=f"(set {dest_cls}:${dest}, {self._class_of(inner.id)}:${inner.id})",
             )
 
-        # rd = imm  (load immediate — no matching pattern; use ISelLowering)
+        # rd = imm  (load immediate - no matching pattern; use ISelLowering)
         if isinstance(inner, ast.Constant):
-            return DagPattern(category="custom", notes=["load-immediate — ISelLowering"])
+            return DagPattern(category="custom", notes=["load-immediate - ISelLowering"])
 
         return DagPattern(category="custom", notes=["complex expression"])
 
@@ -490,7 +490,7 @@ class LLVMDagBackend:
             return f"{self._imm_type(node.id)}:${node.id}"  # immediate operand
         if isinstance(node, ast.Constant):
             return f"(i{self.xlen} {node.value})"
-        # Register slice rs2[lo:hi] — use base register (hardware takes lower bits)
+        # Register slice rs2[lo:hi] - use base register (hardware takes lower bits)
         if isinstance(node, ast.Subscript) and isinstance(node.value, ast.Name):
             base = node.value.id
             if base in ir.register_map:

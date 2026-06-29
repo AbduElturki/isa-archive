@@ -27,15 +27,15 @@ def _guest_word(isa_reg) -> dict:
     QEMU's TCG only has 32- and 64-bit guest words (TARGET_LONG_BITS), so:
 
     * a narrow architectural xlen (8/16) is emulated over a 32-bit guest word
-      the way QEMU's AVR target works — PC and addresses are masked to xlen,
+      the way QEMU's AVR target works - PC and addresses are masked to xlen,
       and xlen-wide register files live in guest-word-sized slots with masked
       writes;
     * xlen=128 runs over a 64-bit guest word: registers and arithmetic are
-      native 128-bit (host ``__uint128_t``, helper-only — no TCG globals), but
+      native 128-bit (host ``__uint128_t``, helper-only - no TCG globals), but
       the PC and the address space are 64-bit (TCG has no 128-bit guest
       addresses; values written to the PC truncate to the address space).
 
-      tcg_bits   : 32 or 64 — TARGET_LONG_BITS / TCG global width
+      tcg_bits   : 32 or 64 - TARGET_LONG_BITS / TCG global width
       tcg_type   : "i32"/"i64"
       c_int_type : C type of helper value args ("uint32_t"/"uint64_t")
       xlen_mask  : hex mask when xlen < tcg_bits (None otherwise)
@@ -101,7 +101,7 @@ def _regfile_storage(isa_reg) -> dict[str, dict]:
         if w == 128:
             # Native 128-bit storage on the host (__uint128_t exists on every
             # 64-bit host compiler QEMU supports). Helper-only: 128-bit values
-            # never cross the TCG helper boundary — helpers get the index.
+            # never cross the TCG helper boundary - helpers get the index.
             storage[r.name] = {"width": w, "storage_bits": 128,
                                "c_type": "__uint128_t", "bytes": None,
                                "tcg": None, "mask": None}

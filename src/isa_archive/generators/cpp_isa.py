@@ -1,4 +1,4 @@
-"""Generate descriptive C++ headers for an ISA — enums, a per-instruction metadata
+"""Generate descriptive C++ headers for an ISA - enums, a per-instruction metadata
 table, and decode/field helpers a consumer adopts into their own functional or cycle
 model. Mirrors the shape of nisa-archive's generated C++ (decode + metadata + latency),
 not an executing simulator.
@@ -40,7 +40,7 @@ def _instr_info(instr, isa_reg, latencies: dict[str, int]) -> dict:
     schema = isa_reg.schemas[instr.spec.schema_name]
 
     # fixed fields (for wide-word decode), register/immediate operands, and the
-    # immediate-reconstruction layout — shared with the QEMU >64-bit decoder.
+    # immediate-reconstruction layout - shared with the QEMU >64-bit decoder.
     df = compute_decode_fields(instr, schema, isa_reg)
     fixed, operands, imm = df["fixed"], df["operands"], df["imm"]
 
@@ -112,7 +112,7 @@ def generate_cpp_isa(registry: Registry, output_dir: str, clang_format: bool = F
                                       limit_hint=("The C++ model decodes instruction words up to "
                                                   "512 bits."))
         except ValueError as e:
-            logger.warning("%s: skipping C++ model — %s", isa_name, e)
+            logger.warning("%s: skipping C++ model - %s", isa_name, e)
             continue
 
         latencies = _uarch_latencies(registry, isa_name)

@@ -6,7 +6,7 @@ It's a separate kind so one ISA can have several implementations - an
 in-order single-issue chassis and a superscalar one, from the same ISA.
 
 Today the uArch manifest is consumed by the **Verilog generator**
-(`-t verilog --uarch …`); see [the Verilog target](../targets/verilog.md).
+(`-t verilog --uarch …`); see [the Verilog target](../targets/verilog/README.md).
 
 ```yaml
 apiVersion: isa-archive/v1
@@ -80,6 +80,4 @@ isa-archive generate --isa examples/tutorial/pico32-part4/isa.yaml \
 
 ## Current boundaries
 
-- uArch data (latencies, issue width) shapes the generated RTL skeletons
-  only - the QEMU model stays purely functional and the compiler's scheduling
-  model doesn't consume it yet.
+This project's boundaries are consolidated in one place - see [Limitations](../limitations.md#micro-architecture-uarch).

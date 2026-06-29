@@ -1,4 +1,4 @@
-"""Tests for the `cpp-isa` target — descriptive C++ ISA headers."""
+"""Tests for the `cpp-isa` target - descriptive C++ ISA headers."""
 import shutil
 import subprocess
 import pathlib
@@ -113,7 +113,7 @@ def test_cpp_isa_wide_uses_byte_array_word(tmp_path):
 
 
 def test_cpp_isa_wide_decodes_fields_beyond_bit_64(tmp_path):
-    # The tag that distinguishes WADD/WSUB lives at bit 64 — only a wide decode
+    # The tag that distinguishes WADD/WSUB lives at bit 64 - only a wide decode
     # path can reach it. Confirm both fixed-field checks are emitted.
     decode = (_gen_wide(tmp_path) / "WideProbeDecoder.h").read_text()
     assert "get_bits(word, 64, 8) == 1ull" in decode  # TAG.ADD → WADD
@@ -168,7 +168,7 @@ def test_cpp_isa_encoder_has_per_instruction_functions(tmp_path):
 
 @pytest.mark.skipif(CXX is None, reason="no C++ compiler")
 def test_cpp_isa_encode_decode_roundtrip(tmp_path):
-    # Encode with the generated encoder, decode with the generated decoder — the two
+    # Encode with the generated encoder, decode with the generated decoder - the two
     # must agree because both derive from the same manifest field layout.
     out = _gen(tmp_path)
     _run_roundtrip(
@@ -187,7 +187,7 @@ def test_cpp_isa_encode_decode_roundtrip(tmp_path):
 
 @pytest.mark.skipif(CXX is None, reason="no C++ compiler")
 def test_cpp_isa_wide_encode_decode_roundtrip(tmp_path):
-    # Same round-trip for a 128-bit word — the encoder's set_bits and the decoder's
+    # Same round-trip for a 128-bit word - the encoder's set_bits and the decoder's
     # get_bits both reach the tag/immediate fields beyond bit 64.
     out = _gen_wide(tmp_path)
     _run_roundtrip(

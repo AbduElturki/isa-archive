@@ -7,7 +7,7 @@ def _find_sp_adjust_opcode(instr_defs: list) -> Optional[str]:
     """Heuristic add-immediate opcode for SP adjustment (prologue/epilogue).
 
     Used only as a fallback when no instruction declares the `frame.sp_adjust` /
-    `alu_ri.add` compiler role. Returns None if nothing plausible is found —
+    `alu_ri.add` compiler role. Returns None if nothing plausible is found -
     callers and templates guard on None.
     """
     for name, info in instr_defs:

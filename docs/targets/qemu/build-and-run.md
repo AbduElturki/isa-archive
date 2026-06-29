@@ -2,7 +2,7 @@
 
 This is the manual, understand-every-step version. The automated equivalent
 for the bundled pico32 example is `bash examples/tutorial/scripts/01_build_qemu.sh` -
-same steps, scripted. [Tutorial part 1](../../examples/tutorial/pico32-part1/README.md)
+same steps, scripted. [Tutorial part 1](../../../examples/tutorial/pico32-part1/README.md)
 walks this for an ISA you build yourself.
 
 Prerequisites: `git`, `meson`, `ninja` (macOS: `brew install meson ninja`).
@@ -60,7 +60,7 @@ ninja -C qemu-build          # incremental - seconds
 
 ## 4. Run a program
 
-The machine comes from your ISA's [`machine:` block](../yaml/isa.md#machine--the-qemu-machine):
+The machine comes from your ISA's [`machine:` block](../../yaml/isa.md#machine--the-qemu-machine):
 RAM at `ram_base`, execution starting at the reset vector, plus your devices.
 It loads ELF files via `-kernel`:
 
@@ -72,13 +72,13 @@ qemu-system-pico32 -M pico32-virt -display none -serial stdio -monitor none \
 - `-M {isa}-virt` - your generated machine.
 - `-serial stdio` - the `ns16550` UART becomes your terminal: every byte the
   program stores to the UART base address appears here.
-- `-kernel` - an ELF (from the [generated assembler](../targets/assembler.md)
+- `-kernel` - an ELF (from the [generated assembler](../assembler/README.md)
   with `--elf`, or from [your generated clang](../compiler/build-and-use.md)).
 
 **Exiting**: with a `sifive_test` device declared, the program writes `0x5555`
 to its base address and QEMU exits with status 0 (`0x3333` → failure). Make
 that write the program's *last action* (or spin afterwards) - see the
-[tutorial](../../examples/tutorial/pico32-part1/README.md#run-it) for the idiom.
+[tutorial](../../../examples/tutorial/pico32-part1/README.md#run-it) for the idiom.
 
 ## Debugging your ISA
 

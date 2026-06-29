@@ -41,12 +41,12 @@ def test_resolve_known_scalars():
 
 def test_resolve_unknown_returns_none():
     assert resolve("notatype") is None
-    assert resolve("v2f32") is None      # vector — not a native scalar
+    assert resolve("v2f32") is None      # vector - not a native scalar
     assert resolve("Vec2") is None       # Operand struct name
 
 
 def test_sixteen_bit_floats_have_no_native_host_ctype():
-    # Honest ceiling: f16/bf16/f128 have an LLVM MVT but no portable host C type.
+    # Built-in scope: f16/bf16/f128 have an LLVM MVT but no portable host C type.
     assert resolve("f16").c_type is None
     assert resolve("bf16").c_type is None
     assert resolve("f128").c_type is None
@@ -97,7 +97,7 @@ def test_register_is_float_parity_across_all_forms():
     assert _reg().is_float is False
 
 
-# ── kind: ScalarType — the load-time registry ────────────────────────────────
+# ── kind: ScalarType - the load-time registry ────────────────────────────────
 
 def _stdef(name, **spec):
     return ScalarTypeDef(metadata=Metadata(name=name), spec={**spec})

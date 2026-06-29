@@ -4,8 +4,8 @@ Covers the compiler-role contract, coverage report, constant-materialization
 strategies, and the Phase-1 compare-then-branch / select lowering.
 
 The example ISAs were consolidated to pico32 (+ its fp/ extension) and npu-probe;
-scenarios pico32 deliberately can't express — OR-based constant materialization
-(hi_lo_or) and compare-then-branch (SLT + BEQ/BNE, no direct ordering branch) —
+scenarios pico32 deliberately can't express - OR-based constant materialization
+(hi_lo_or) and compare-then-branch (SLT + BEQ/BNE, no direct ordering branch) -
 use the dedicated tests/fixtures/cmpisa.yaml fixture instead.
 """
 import pathlib

@@ -39,7 +39,7 @@ def test_qemu_wide_meson_skips_decodetree(tmp_path):
 
 def test_qemu_wide_decoder_matches_fields_beyond_bit_64(tmp_path):
     dec = (_gen(tmp_path, WIDE) / "decode-wide-probe.c.inc").read_text()
-    # The tag at bit 64 distinguishes WADD (1) from WSUB (2) — only a byte-array
+    # The tag at bit 64 distinguishes WADD (1) from WSUB (2) - only a byte-array
     # decoder can reach it.
     assert "get_bits(insn, 64, 8) == 1ull" in dec
     assert "get_bits(insn, 64, 8) == 2ull" in dec
@@ -64,7 +64,7 @@ def test_qemu_wide_translate_fetches_byte_array(tmp_path):
 def test_qemu_wide_big_endian_reverses_fetch(tmp_path):
     # On a big-endian guest the byte at the lowest address is most-significant, so
     # the fetch stores into insn[N-1-_i] to normalize to a little-endian byte array
-    # (get_bits then stays byte-order-agnostic — same decoder body as little-endian).
+    # (get_bits then stays byte-order-agnostic - same decoder body as little-endian).
     out = _gen(tmp_path, WIDE_BE)
     tr = (out / "wide-probe-be_translate.c").read_text()
     assert "insn[16 - 1 - _i] = translator_ldub" in tr

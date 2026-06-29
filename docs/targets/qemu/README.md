@@ -5,33 +5,50 @@
 This page explains what's generated and how the model works;
 [build-and-run.md](build-and-run.md) walks the actual build.
 
-## What `-t qemu` produces
+## Files generated
 
-The output mirrors the QEMU source tree, so integration is a copy plus one
-script:
+The output mirrors the QEMU source tree, so integration is a copy plus one script. The files group
+by sub-target (`-t qemu` emits all of them; the slices below emit one group each).
 
-```
-build/
-  target/{isa}/          → drop into $QEMU/target/{isa}/
-    {isa}.decode           decode patterns, one per instruction
-    {isa}_helpers.c        one C function per instruction (from behavior:)
-    {isa}_trans.c.inc      per-instruction translation (JIT fast path or helper call)
-    {isa}_translate.c      the fetch→decode→translate loop
-    {isa}_arch.h           CPU state: pc + your register files + CSRs
-    {isa}_cpu.c, cpu.h, …  CPU model boilerplate, build files
-  hw/{isa}/virt.c        → your machine: RAM, reset vector, declared devices
-  configs/               → build-system config for the new target
-  patch_qemu.sh          → one-shot integration script
-  INTEGRATE.md           → step-by-step instructions
-```
+**ISA semantics** (`-t qemu-isa`; in `target/{isa}/` under the full tree):
 
-Sub-targets emit just a slice of the above - useful when you maintain your own
-QEMU integration:
+| File | Purpose |
+|---|---|
+| `{isa}.decode` | decodetree patterns, one per instruction (≤64-bit ISAs) |
+| `decode-{isa}.c.inc` | hand-written byte-array decoder (emitted *instead* of `{isa}.decode` for >64-bit instruction words) |
+| `{isa}_helpers.c` | one C helper per instruction, lowered from `behavior:` (the `mem*`/`sext`/float runtime) |
+| `{isa}_helper.h` | declarations of those TCG helpers |
+| `{isa}_trans.c.inc` | per-instruction translation - inline TCG fast path or helper call |
+| `{isa}_translate.c` | the fetch → decode → translate loop |
+| `{isa}_arch.h` | CPU state: `pc` + your register files + CSRs |
+| `{isa}_cpu.c` | CPU model: reset, interrupt vectoring, QOM registration |
+| `{isa}_operands.h` | operand structs (only when the ISA declares Operands) |
 
-- `-t qemu-isa` - only the ISA-semantics files (decoder/helpers/translator),
-  flat in one directory, no machine or build plumbing.
-- `-t qemu-machine` - only the machine: `hw/{isa}/virt.c` + `configs/`.
-- `-t qemu-build` - only the integration glue: `patch_qemu.sh` + `INTEGRATE.md`.
+A `.clang-format` (QEMU house style) is also written at the **output root**.
+
+**CPU / QOM glue** (`-t qemu` `isa` component, in `target/{isa}/`):
+
+| File | Purpose |
+|---|---|
+| `cpu.h` · `cpu-qom.h` · `cpu-param.h` | CPU class, QOM type macros, CPU parameters (word size, page bits) |
+| `helper.h` | helper registration for decodetree |
+| `meson.build` · `Kconfig` | build wiring for the target |
+
+**Machine** (`-t qemu-machine`, in `hw/{isa}/` + `configs/`):
+
+| File | Purpose |
+|---|---|
+| `hw/{isa}/virt.c` | the "virt" board: RAM, reset vector, your declared devices (UART, test/exit, `irq_test`) |
+| `hw/{isa}/meson.build` · `hw/{isa}/Kconfig` | build wiring for the machine |
+| `configs/targets/{isa}-softmmu.mak` | target build config |
+| `configs/devices/{isa}-softmmu/default.mak` | enabled-devices config |
+
+**Integration** (`-t qemu-build`, at the output root):
+
+| File | Purpose |
+|---|---|
+| `patch_qemu.sh` | one-shot script that copies the files into a QEMU checkout and wires them up |
+| `INTEGRATE.md` | step-by-step manual integration instructions |
 
 ## How execution works
 
@@ -97,9 +114,9 @@ QEMU itself only has 32- and 64-bit machine words, so the generator maps your
   byte-swapped loads/stores/fetch).
 - Float register files (`type: f32`/`f64`) compute with real host float
   arithmetic.
-- Software traps are modeled when the ISA declares a [`trap:` block](../yaml/isa.md):
+- Software traps are modeled when the ISA declares a [`trap:` block](../../yaml/isa.md):
   `trap()` / `trap_return()` behaviors save the PC, set the cause, and jump through
-  the trap vector (see [the behavior DSL](../yaml/behavior.md#csrs-and-traps)). There
+  the trap vector (see [the behavior DSL](../../yaml/behavior.md#csrs-and-traps)). There
   is no *hardware* interrupt delivery yet - an unhandled guest exception (e.g. an
   illegal instruction not routed through `trap()`) halts the CPU and, with
   `-d guest_errors`, logs `unhandled exception N at pc=0x… - CPU halted`. A pending
@@ -107,18 +124,4 @@ QEMU itself only has 32- and 64-bit machine words, so the generator maps your
 
 ## Current boundaries
 
-- **Instruction words are capped at 64 bits** in the simulator (the compiler
-  side accepts up to 512). Wider encodings fail with:
-  `instruction width 128 exceeds the 64-bit limit. The QEMU backend fetches
-  one instruction word per translation step…`
-- **Arithmetic on >64-bit registers** works only for exactly-128-bit files;
-  a 256-bit file is state-only and behaviors touching it are rejected with
-  the instruction named.
-- **16-bit floats (f16/bf16) and f128** have no native host arithmetic; float
-  math on them is rejected (the message points at the gap).
-- **One flat address space** - `mem*[...]` always targets system memory;
-  separate scratchpad memories aren't expressible yet.
-- **Functional only** - no cycle counts, caches, or pipeline timing. The
-  [uArch manifest](../yaml/uarch.md) feeds the Verilog generator, not QEMU.
-- Each ISA change needs a QEMU rebuild - but incremental builds are seconds
-  (see [build-and-run.md](build-and-run.md)).
+This project's boundaries are consolidated in one place - see [Limitations](../../limitations.md#qemu-emulator).

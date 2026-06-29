@@ -1,4 +1,4 @@
-"""Tests for the `asm` target — the generated Python assembler.
+"""Tests for the `asm` target - the generated Python assembler.
 
 Focus: instruction-word widths. 4-byte ISAs must keep emitting `struct.pack`
 (byte-identical), while wider ISAs use a width-agnostic `int.to_bytes`.
@@ -57,6 +57,6 @@ def test_asm_wide_round_trip(tmp_path):
 
     w0, w1 = data[:16], data[16:]
     # opcode at bit 0; the tag that distinguishes the ops lives at bit 64;
-    # the immediate at bit 72 — both beyond a 64-bit word.
+    # the immediate at bit 72 - both beyond a 64-bit word.
     assert gb(w0, 0, 8) == 1 and gb(w0, 64, 8) == 1 and gb(w0, 72, 32) == 5  # wadd
     assert gb(w1, 0, 8) == 1 and gb(w1, 64, 8) == 2 and gb(w1, 72, 32) == 7  # wsub

@@ -104,12 +104,8 @@ constraints:
 instruction using it - e.g. "everything in this format is a register-register
 ALU op" (`alu_rr`) or "everything here is a conditional branch" (`branch`).
 The specific operation still comes from each instruction's behavior. See
-[compiler roles & coverage](../compiler/roles-and-coverage.md).
+[compiler roles & coverage](../targets/compiler/roles-and-coverage.md).
 
 ## Current boundaries
 
-- One uniform instruction length per ISA. Mixing 16- and 32-bit encodings in
-  one ISA fails validation with `mixed instruction widths [16, 32] are not
-  supported`.
-- Encodings wider than 64 bits generate an LLVM backend but not a QEMU
-  target; the error explains the simulator's fetch/decode ceiling.
+This project's boundaries are consolidated in one place - see [Limitations](../limitations.md#instruction-encodings).

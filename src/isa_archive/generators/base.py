@@ -50,7 +50,7 @@ def _clang_format_in_place(path: pathlib.Path) -> None:
     """Run ``clang-format -i`` on a just-written C/C++ file if the tool exists,
     using ``-style=file`` so the tree's shipped ``.clang-format`` is honored
     (falling back to clang-format's built-in LLVM style if none is found).
-    A no-op when clang-format isn't installed — never a hard dependency."""
+    A no-op when clang-format isn't installed - never a hard dependency."""
     exe = shutil.which("clang-format")
     if exe is None:
         return

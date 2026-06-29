@@ -58,8 +58,8 @@ def compute_fixed_fields(instr: "Instruction", schema: "Schema",
                          isa_reg: "ISARegistry") -> list:
     """Resolve every fixed (OPCODE / CONSTANT / RESERVED) field of an instruction.
 
-    Returns ``[(SchemaField, value:int), …]`` — RESERVED is 0, OPCODE comes from
-    ``instr.spec.opcode``, CONSTANT from ``instr.spec.constants`` — using the
+    Returns ``[(SchemaField, value:int), …]`` - RESERVED is 0, OPCODE comes from
+    ``instr.spec.opcode``, CONSTANT from ``instr.spec.constants`` - using the
     registry's value resolver (which handles named constants and enum members).
     Fields whose value can't be resolved (or an unconstrained constant) are
     omitted. The single source of truth for the LLVM and C++ backends, which
@@ -89,9 +89,9 @@ def compute_decode_fields(instr: "Instruction", schema: "Schema",
     """Per-instruction decode metadata shared by the byte-array decoders (cpp-isa,
     and QEMU's >64-bit path). Returns:
 
-    - ``fixed``: ``[{start, width, val}]`` — the opcode/constant/reserved bits to
+    - ``fixed``: ``[{start, width, val}]`` - the opcode/constant/reserved bits to
       match (from :func:`compute_fixed_fields`).
-    - ``operands``: ``[{name, kind, start, width, signed, rc}]`` — register
+    - ``operands``: ``[{name, kind, start, width, signed, rc}]`` - register
       (``kind="Reg"``) and immediate (``kind="Imm"``) fields, in schema order.
     - ``imm``: the immediate reconstruction (``None`` if no immediate). Either a
       single field ``{combined: False, width, signed, start}`` or a split layout
@@ -100,14 +100,14 @@ def compute_decode_fields(instr: "Instruction", schema: "Schema",
     The single source of truth so the assembler, cpp-isa, and QEMU agree bit-for-bit.
     """
     # Lazy import: this lives in compiler/, and generators/ already imports
-    # compiler.utils — importing it at module scope would be circular.
+    # compiler.utils - importing it at module scope would be circular.
     from ..generators.llvm import _get_schema_combined_imm
 
     reg_classes = {r.name for r in isa_reg.registers}
 
     # Fixed-field match conditions. A field wider than 64 bits is split into <=64-bit
     # chunks so the byte-array decoders (whose get_bits returns uint64_t) check every
-    # bit — without this a >64-bit reserved/constant field would be matched with a
+    # bit - without this a >64-bit reserved/constant field would be matched with a
     # truncated value, silently ignoring bits >= 64. <=64-bit fields pass through
     # unchanged (one chunk == the whole field), so narrow ISAs are byte-identical.
     fixed = []
@@ -219,7 +219,7 @@ def instruction_pattern(instr: "Instruction", schema: "Schema", fill: str = ".")
 def constraint_to_c(expr: str, field_prefix: str = "") -> str:
     """Translate a Python-style boolean expression to C.
 
-    field_prefix is prepended to every variable name — use "a->" for QEMU trans_ context.
+    field_prefix is prepended to every variable name - use "a->" for QEMU trans_ context.
     Python and C share ==, !=, <, >, <=, >=, +, -, *, /, %, &, |, ^, <<, >>.
     Only and/or/not differ and are translated here.
     """

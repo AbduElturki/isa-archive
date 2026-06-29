@@ -1,11 +1,11 @@
-"""`kind: ScalarType` — a YAML-declared scalar numeric type.
+"""`kind: ScalarType` - a YAML-declared scalar numeric type.
 
 Registers an element type (its token = `metadata.name`) that a register file's
 `type:` can then name, extending the built-in int/IEEE-float table in
 `scalar_types.py` without editing Python. Used for sub-byte ints, FP8 formats,
 bf16/tf32, etc. The `arith_class` is limited to the two classes with native
 lowering; a type with `c_type: null` stores and moves but has no host
-arithmetic (exactly like the built-in f16/f128 — QEMU rejects arithmetic on it
+arithmetic (exactly like the built-in f16/f128 - QEMU rejects arithmetic on it
 loudly, LLVM still uses its MVT)."""
 from typing import Literal, Optional
 
@@ -18,7 +18,7 @@ class ScalarTypeSpec(StrictModel):
     isn't a built-in; providing the (type, include) ENABLES the type for that backend."""
     width: int
     arith_class: Literal["int", "ieee_float"] = "int"
-    # LLVM: the value-type MVT (e.g. "f8E4M3"). Optional — omit and a register file using
+    # LLVM: the value-type MVT (e.g. "f8E4M3"). Optional - omit and a register file using
     # this type is not an LLVM register class (it stays simulator-only in the compiler).
     llvm_mvt: Optional[str] = None
     llvm_include: Optional[str] = None  # reserved: the LLVM backend emits only built-in MVTs,

@@ -3,11 +3,11 @@
 isa-archive treats a register file's element type as a *scalar numeric type* with
 three derived facts the code generators need:
 
-* ``llvm_mvt``   — the LLVM machine value type (``i32``, ``f32``, ``bf16`` …).
-* ``c_type``     — the QEMU host C type used to do arithmetic on it
+* ``llvm_mvt``   - the LLVM machine value type (``i32``, ``f32``, ``bf16`` …).
+* ``c_type``     - the QEMU host C type used to do arithmetic on it
                    (``uint32_t``, ``float``, ``double`` …), or ``None`` when the
                    host has no native type for it.
-* ``arith_class``— the arithmetic semantics (integer vs IEEE float). The
+* ``arith_class``- the arithmetic semantics (integer vs IEEE float). The
                    generators branch on this to pick ``ISD::ADD`` vs ``ISD::FADD``,
                    integer vs float helpers, etc.
 
@@ -16,7 +16,7 @@ Float used to be a special case scattered across the generators (a boolean
 collapses all of that into one table so "float" is just one row, and adding a new
 IEEE-float width (``f16``/``bf16``/``f128``) is a data change, not a code change.
 
-Honest ceiling: the built-ins cover types LLVM has a native MVT for (integers and
+Built-in scope: the built-ins cover types LLVM has a native MVT for (integers and
 IEEE floats). Genuinely novel numerics (fixed-point, posit) still need *custom
 lowering*; ``resolve`` returns ``None`` for an unknown token so callers fail loudly.
 
@@ -153,11 +153,11 @@ def of_register(reg) -> ScalarType:
     """Resolve a register file's scalar element type, honoring legacy shims.
 
     Resolution order:
-      1. modern ``type:`` — a scalar token (``i32``/``f32``); an Operand-struct
+      1. modern ``type:`` - a scalar token (``i32``/``f32``); an Operand-struct
          name resolves to opaque ``i{width}`` storage.
-      2. legacy ``value_types:`` — the first entry's token.
-      3. legacy ``float: true`` — an IEEE float of the register's width.
-      4. default — opaque integer of the register's width.
+      2. legacy ``value_types:`` - the first entry's token.
+      3. legacy ``float: true`` - an IEEE float of the register's width.
+      4. default - opaque integer of the register's width.
     """
     t = getattr(reg, "type", None)
     if t:

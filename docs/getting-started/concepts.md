@@ -75,6 +75,6 @@ adjustment, and which registers hold arguments. Two mechanisms provide this:
 
 Every `-t llvm` run writes a `COMPILER_COVERAGE.md` scorecard telling you
 exactly what your ISA can lower and what's missing. The
-[roles & coverage guide](../compiler/roles-and-coverage.md) explains how to
+[roles & coverage guide](../targets/compiler/roles-and-coverage.md) explains how to
 read it; [part 3 of the tutorial](../../examples/tutorial/pico32-part3/README.md)
 walks the whole journey from "simulates" to "compiles C".

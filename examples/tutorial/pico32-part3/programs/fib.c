@@ -1,9 +1,9 @@
-/* fib.c — compute fib(10), print the result on the UART, and report
+/* fib.c - compute fib(10), print the result on the UART, and report
  * success through the exit code. Compiled by *your* clang.
  *
  * pico32 has no multiply, divide, or byte-store instructions, so this
  * program sticks to what the ISA can do: word ops, adds/subs, branches.
- * (Division would become a __udivsi3 libcall — a link error without
+ * (Division would become a __udivsi3 libcall - a link error without
  * compiler-rt; see the tutorial's "Current boundaries".)
  */
 

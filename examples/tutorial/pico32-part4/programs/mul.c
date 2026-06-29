@@ -1,14 +1,14 @@
-/* mul.c — proof the compiler uses the new instruction.
+/* mul.c - proof the compiler uses the new instruction.
  *
  * With the pico32m backend, `a * b` compiles to a single MUL (check with
  * `clang -S`). On plain pico32 this same file fails to link (the multiply
- * becomes a `__mulsi3` runtime-library call that -nostdlib can't resolve) —
- * because the compiler honestly has nothing to multiply with.
+ * becomes a `__mulsi3` runtime-library call that -nostdlib can't resolve) -
+ * because the compiler has no hardware multiplier on the base ISA.
  *
  * The OK/NO check is written as a branch to two separate functions, not as a
  * value: pico32 can branch on a comparison but has no instruction to turn one
  * into a 0/1 register (see part 3's boundaries). Decimal printing is likewise
- * avoided — it needs division, which pico32 also lacks.
+ * avoided - it needs division, which pico32 also lacks.
  */
 
 static volatile unsigned int *const UART =

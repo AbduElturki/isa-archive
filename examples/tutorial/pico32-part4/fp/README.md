@@ -1,17 +1,17 @@
-# pico32f — single-precision floating point
+# pico32f - single-precision floating point
 
 An extension layer (`extends: ../isa.yaml`) that gives pico32 a **second
-register class** and a **hard-float ABI** — the case that exercises the
+register class** and a **hard-float ABI** - the case that exercises the
 generator's multi-register-class and floating-point paths.
 
 ## What it adds
 
-- **`fpr`** — 32 single-precision (`f32`) registers with their own ABI names
+- **`fpr`** - 32 single-precision (`f32`) registers with their own ABI names
   (`fa0..fa3`, `fs0..fs1`, `ft0..ft2`).
-- **FADD / FSUB / FMUL** — float arithmetic. The compiler infers the float
+- **FADD / FSUB / FMUL** - float arithmetic. The compiler infers the float
   operation from the behavior (`rd = rs1 + rs2`) because the operands live in
-  the `f32` file — no separate "this is float" flag needed.
-- **FLW / FSW** — move 32-bit values between memory and `fpr` (the address base
+  the `f32` file - no separate "this is float" flag needed.
+- **FLW / FSW** - move 32-bit values between memory and `fpr` (the address base
   is an ordinary `gpr`).
 - A **hard-float calling convention**: `abi.fp_arg_registers` / `fp_ret_registers`
   pass and return floats in `fa*`.
@@ -21,8 +21,8 @@ generator's multi-register-class and floating-point paths.
 The loader inherits a base ISA's register files **only when the extension
 declares none of its own** (`compiler/loader.py`). Because `fp/` introduces
 `fpr`, it must also restate the inherited `gpr` file (and the `abi` block, to
-add the `fp_*` registers). Everything else — schemas, instructions, constants,
-the riscv32 triple, the machine — is inherited.
+add the `fp_*` registers). Everything else - schemas, instructions, constants,
+the riscv32 triple, the machine - is inherited.
 
 ## Try it
 
@@ -42,6 +42,6 @@ using the hard-float calling convention.
 
 ## Current boundaries
 
-- No float↔int conversion (`FCVT`) or float compare/branch — out of scope for a
+- No float↔int conversion (`FCVT`) or float compare/branch - out of scope for a
   minimal showcase, so `float.c` checks its result by bit pattern rather than
   printing it.

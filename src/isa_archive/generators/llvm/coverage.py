@@ -188,7 +188,7 @@ def _build_coverage_report(isa_name: str, roles: dict[str, str], conflicts: list
             lines.append(f"- `{name}`: {why}")
 
     status = "COMPILER-COMPLETE ✓" if not missing_required else \
-             "INCOMPLETE ✗ — missing: " + ", ".join(sorted(set(missing_required)))
+             "INCOMPLETE ✗ - missing: " + ", ".join(sorted(set(missing_required)))
     lines += ["", f"**STATUS: {status}** (profile `{profile}`)", ""]
     return "\n".join(lines), sorted(set(missing_required))
 

@@ -9,8 +9,8 @@ stack-pointer adjustment". A **role** is that assignment: a tag like
 
 ```mermaid
 flowchart TB
-    L1["Layer 1 — infer from behavior<br/><i>rd = rs1 + rs2 becomes alu_rr.add</i>"] --> L2["Layer 2 — schema shape default<br/><i>roles: [branch]</i>"]
-    L2 --> L3["Layer 3 — instruction tag<br/><i>explicit; wins over both</i>"]
+    L1["Layer 1 - infer from behavior<br/><i>rd = rs1 + rs2 becomes alu_rr.add</i>"] --> L2["Layer 2 - schema shape default<br/><i>roles: [branch]</i>"]
+    L2 --> L3["Layer 3 - instruction tag<br/><i>explicit; wins over both</i>"]
     L3 --> R["role to opcode binding"]
 ```
 
@@ -126,10 +126,4 @@ or set spec.compiler.profile to match the target...
 
 ## Current boundaries
 
-- Inference covers single-statement ALU/load/store/compare/branch/jump
-  shapes. Multi-statement or exotic behaviors become custom-lowered entries -
-  correctness is unaffected; only selection quality is.
-- Two instructions claiming one role is reported as a conflict in the report
-  (first one wins) - resolve it by removing a tag.
-- If a duty exists in your ISA but inference misses it, tag it explicitly at
-  the instruction level; layer 3 always wins.
+This project's boundaries are consolidated in one place - see [Limitations](../../limitations.md#compiler-roles-and-coverage).

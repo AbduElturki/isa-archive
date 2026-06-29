@@ -1,4 +1,4 @@
-/* float.c — exercise the pico32f floating-point extension.
+/* float.c - exercise the pico32f floating-point extension.
  *
  * pico32f adds a second register class (fpr, f32) and the FADD/FSUB/FMUL/
  * FLW/FSW instructions. This leaf computes  v[0]*k + v[1]  entirely in float
@@ -11,7 +11,7 @@
 
 static float data[2] = { 1.5f, 2.5f };
 
-/* Uses FLW (load data), FMUL, FADD — and the hard-float calling convention
+/* Uses FLW (load data), FMUL, FADD - and the hard-float calling convention
  * (k arrives in fa0, the result returns in fa0). */
 static float scale(const float *v, float k) {
     return v[0] * k + v[1];

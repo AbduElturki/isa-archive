@@ -87,9 +87,9 @@ Any width simulates. For the *compiler*, a file becomes an allocatable register 
 only if it's float-typed, xlen-wide, or a 1-D vector; other files (1-bit predicates,
 wide accumulators, multi-dimensional tiles) stay architectural state, and instructions
 using them are simulator-only - see
-[the compiler guide](../compiler/README.md#register-files-and-the-compiler). In QEMU,
+[the compiler guide](../targets/compiler/README.md#register-files-and-the-compiler). In QEMU,
 scalar files up to 64 bits (and exactly 128 bits) support direct arithmetic in
-behaviors; details in [the QEMU guide](../qemu/README.md#how-register-files-are-stored).
+behaviors; details in [the QEMU guide](../targets/qemu/README.md#how-register-files-are-stored).
 
 Three real configurations to crib from:
 
@@ -110,28 +110,4 @@ Three real configurations to crib from:
 
 ## Current boundaries
 
-What works today: scalar files with ABI aliases and a hardwired-zero register; custom
-element types; fixed-shape vectors and tiles with element indexing; per-register
-attributes; and - on the compiler side - 1-D vector register classes with element-wise
-and contiguous load/store lowering.
-
-Not supported today:
-
-- **Fuller vector instruction selection.** Reductions, shuffles, lane insert/extract,
-  masked/predicated operations, and scalar broadcast (splat) don't lower to vector
-  patterns.
-- **Float arithmetic on exotic-element vectors/tiles.** `f32`/`f64` element arithmetic
-  works; sub-byte and 8-bit floats (e.g. `fp8`) store and move only.
-- **Dynamic / scalable shape.** Shape is fixed at definition. Vector-length-agnostic
-  files (SVE/RVV-style) and runtime tile dimensions are not expressible.
-- **Register pairs and overlapping views.** Linked register pairs (a wide value spanning
-  two registers) and sub-register aliasing (x86 AL/AX/EAX, ARM S/D/Q) have no model.
-- **Register banking / shadow registers.** Per-mode or per-privilege banked register
-  sets are not modeled.
-- **Allocation subclasses.** Only whole-file register classes exist; subclasses such as
-  "even registers only" or a caller-saved subset can't be declared.
-- **Vectors in the ABI and intrinsics.** There is no vector calling convention (vector
-  argument/return registers), and the C/Rust intrinsics skip vector/tile files.
-- **Tooling.** The generated reference manual has no register-file table, and there
-  is no special-register support beyond the hardwired-zero register (read-only registers,
-  hardwired constants, reset values).
+This project's boundaries are consolidated in one place - see [Limitations](../limitations.md#registers-and-state).

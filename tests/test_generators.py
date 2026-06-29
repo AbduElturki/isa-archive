@@ -283,7 +283,7 @@ def test_loader_rejects_setting_non_fixed_field_as_fixed():
             SchemaField(name="rs2",    start=17, width=5, role="register", type="gpr"),
         ])
     ))
-    # rd is role="register", not a fixed-value field — must be rejected
+    # rd is role="register", not a fixed-value field - must be rejected
     reg.add(Instruction(
         metadata=Metadata(name="BAD2"),
         spec=InstructionSpec(**{"schema": "Bad", "opcode": 0x33, "constants": {"rd": 0}, "behavior": "rd = rs1 + rs2"})
@@ -530,7 +530,7 @@ def test_loader_reserved_field_not_required_in_fixed():
         metadata=Metadata(name="ADD"),
         spec=InstructionSpec(**{"schema": "S", "opcode": 0x33, "behavior": "rd = rs1 + rs2"})
     ))
-    reg.validate()  # must not raise — reserved fields require no value
+    reg.validate()  # must not raise - reserved fields require no value
 
 
 def test_loader_reserved_field_encoded_as_zeros_in_pattern(tmp_path):
@@ -655,4 +655,4 @@ def test_loader_allows_fixed_field_collision():
         metadata=Metadata(name="SUB"),
         spec=InstructionSpec(**{"schema": "RType", "opcode": 0x33, "constants": {"funct3": 0, "funct7": 0x20}, "behavior": "rd = rs1 - rs2"})
     ))
-    reg.validate()  # must not raise — distinct funct7 prevents decoder collision
+    reg.validate()  # must not raise - distinct funct7 prevents decoder collision

@@ -50,7 +50,7 @@ def generate_verilog(registry: Registry, output_dir: str, clang_format: bool = F
             if not handled_instrs:
                 logger.warning(
                     f"Block '{block.name}' handles {block.handles} but no instructions have a matching "
-                    f"exec_type — skipping. Check exec_type on your instructions."
+                    f"exec_type - skipping. Check exec_type on your instructions."
                 )
                 continue
 

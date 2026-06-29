@@ -1,6 +1,6 @@
 """Documentation guardrails.
 
-These keep the user-facing docs honest as the code evolves:
+These keep the user-facing docs accurate as the code evolves:
   * every relative Markdown link resolves to a real file,
   * docs carry no internal roadmap vocabulary (plan codes, "phase N", "tier N"),
   * every tutorial snapshot ISA still parses (so the prose can trust them).
@@ -17,7 +17,7 @@ DOCS = REPO / "docs"
 EXAMPLES = REPO / "examples"
 
 # The tutorial prose lives beside its code in examples/, so guard those READMEs
-# too — not just docs/.
+# too - not just docs/.
 _MD_FILES = (
     sorted(DOCS.rglob("*.md"))
     + sorted(EXAMPLES.rglob("*.md"))

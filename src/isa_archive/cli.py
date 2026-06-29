@@ -9,7 +9,7 @@ import yaml
 from .compiler.loader import load_directory, load_isa, load_uarch, load_project, Registry
 from .generators import targets as _targets
 
-# Root logger handler — level is adjusted per command via _setup_logging
+# Root logger handler - level is adjusted per command via _setup_logging
 _handler = logging.StreamHandler()
 _handler.setFormatter(logging.Formatter("%(message)s"))
 logging.getLogger().addHandler(_handler)
@@ -138,7 +138,7 @@ def generate(
 
         # Generate only the ISAs named on the command line. An `extends:` base
         # is loaded so the extension can resolve against it, but its content is
-        # already merged into the extension — emitting a separate backend for
+        # already merged into the extension - emitting a separate backend for
         # the base would be redundant and, for a compiler target, collide with
         # the extension under the same triple. (Pass the base with its own -i to
         # generate it too.)
@@ -257,9 +257,9 @@ def init(
     """))
 
     typer.echo(f"Created {proj}/ with 3 files.\n")
-    typer.echo(f"  isa.yaml          — ISA root (xlen={xlen}, 32 GPRs)")
-    typer.echo(f"  layouts.yaml      — RType instruction schema")
-    typer.echo(f"  instructions.yaml — ADD instruction\n")
+    typer.echo(f"  isa.yaml          - ISA root (xlen={xlen}, 32 GPRs)")
+    typer.echo(f"  layouts.yaml      - RType instruction schema")
+    typer.echo(f"  instructions.yaml - ADD instruction\n")
     typer.echo(f"Try it:")
     typer.echo(f"  isa-archive parse {proj}/isa.yaml")
     typer.echo(f"  isa-archive generate --isa {proj}/isa.yaml -t all -o {proj}/build/")

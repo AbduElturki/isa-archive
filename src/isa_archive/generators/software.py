@@ -19,7 +19,7 @@ class SoftwareLang(StrEnum):
 # Inline-asm wrappers can only carry operands that live in a single
 # general-purpose register and have a portable scalar type. Anything else
 # (floats, sub-/super-register-width files, vector files) returns None and the
-# instruction is skipped — those need typed reg classes or vector intrinsics
+# instruction is skipped - those need typed reg classes or vector intrinsics
 # (a separate capability), not a scalar asm wrapper.
 _C_INT = {8: "uint8_t", 16: "uint16_t", 32: "uint32_t", 64: "uint64_t"}
 _RUST_INT = {8: "u8", 16: "u16", 32: "u32", 64: "u64"}
@@ -56,7 +56,7 @@ def _intrinsic_context(instr, info, schema, lang: SoftwareLang) -> Optional[dict
 
     if len(out_ops) > 1:
         logger.warning("intrinsics: '%s' writes %d registers; a single-value "
-                       "wrapper can't represent it — skipped",
+                       "wrapper can't represent it - skipped",
                        name, len(out_ops))
         return None
 
@@ -65,7 +65,7 @@ def _intrinsic_context(instr, info, schema, lang: SoftwareLang) -> Optional[dict
         t = _reg_type(out_ops[0]["width"], out_ops[0]["is_float"], lang)
         if t is None:
             logger.warning("intrinsics: '%s' output '%s' has no scalar register "
-                           "type — skipped", name, out_ops[0]["name"])
+                           "type - skipped", name, out_ops[0]["name"])
             return None
         out = {"name": out_ops[0]["name"], "type": t}
 
@@ -74,7 +74,7 @@ def _intrinsic_context(instr, info, schema, lang: SoftwareLang) -> Optional[dict
         t = _reg_type(op["width"], op["is_float"], lang)
         if t is None:
             logger.warning("intrinsics: '%s' operand '%s' has no scalar register "
-                           "type — skipped", name, op["name"])
+                           "type - skipped", name, op["name"])
             return None
         in_regs.append({"name": op["name"], "type": t})
 
@@ -106,7 +106,7 @@ def _operand_order(ctx) -> list[str]:
 
 
 def _doc(ctx) -> str:
-    note = "  (custom — no compiler codegen; inline asm only)" if ctx["is_custom"] else ""
+    note = "  (custom - no compiler codegen; inline asm only)" if ctx["is_custom"] else ""
     return f"{ctx['name']}: {ctx['behavior']}{note}"
 
 

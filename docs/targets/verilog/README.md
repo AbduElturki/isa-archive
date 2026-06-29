@@ -5,14 +5,16 @@ isa-archive generate --isa examples/tutorial/pico32-part4/isa.yaml \
     --uarch examples/tutorial/pico32-part4/uarch.yaml -t verilog -o build/rtl
 ```
 
-The Verilog target pairs your ISA with a [uArch manifest](../yaml/uarch.md)
-(`--uarch` is required for the block-level output) and produces:
+The Verilog target pairs your ISA with a [uArch manifest](../../yaml/uarch.md)
+(`--uarch` is required for the block-level output).
 
-| File | Contents |
+## Files generated
+
+| File | Purpose |
 |---|---|
-| `{isa}_operands.sv` | packed-struct typedefs for your [Operands](../yaml/types.md) |
-| `{uarch}_{Block}.sv` | one module per uArch block - combinational datapath implementing every instruction the block `handles`, decoded from the instruction word, semantics from `behavior:` |
-| `{uarch}_top.sv` | a top-level skeleton instantiating the blocks |
+| `{isa}_operands.sv` | packed-struct typedefs for your [Operands](../../yaml/types.md) (always emitted, even without `--uarch`) |
+| `{uarch}_{block}.sv` | one module per uArch block - combinational datapath implementing every instruction the block `handles`, decoded from the instruction word, semantics from `behavior:` (needs `--uarch`) |
+| `{uarch}_top.sv` | a top-level skeleton instantiating the blocks (one per uArch; needs `--uarch`) |
 
 A block module's interface (from the pico32-tiny uArch):
 
@@ -33,7 +35,7 @@ module pico32_tiny_IntegerALU #(
 ```
 
 Instruction routing comes from the `exec_type` ↔ `handles` link
-([how that works](../yaml/uarch.md#how-instructions-reach-blocks)); the
+([how that works](../../yaml/uarch.md#how-instructions-reach-blocks)); the
 per-instruction datapath logic is translated from the same `behavior:` lines
 that drive the simulator and compiler.
 
@@ -59,11 +61,4 @@ structure but the generator does not (yet) build hazard logic from them.
 
 ## Current boundaries
 
-- `--uarch` is required for block generation; without it only
-  `{isa}_operands.sv` is emitted.
-- Behaviors using memory access generate request/response port signals, not a
-  bus protocol - wire them to your memory system.
-- Vector/shaped-register element access (`vd[i]`), per-register
-  [attributes](../yaml/registers.md) (`reg.attr`), CSRs, and traps aren't modeled
-  in the RTL skeleton yet - those instructions emit a `// … not modeled`
-  placeholder. (1-D vector files still get operand typedefs.)
+This project's boundaries are consolidated in one place - see [Limitations](../../limitations.md#systemverilog-rtl).

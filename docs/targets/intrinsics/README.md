@@ -5,13 +5,15 @@ isa-archive generate --isa my-isa/isa.yaml -t c    -o build/sw
 isa-archive generate --isa my-isa/isa.yaml -t rust -o build/sw
 ```
 
-Three files per language, for software that targets your ISA:
+## Files generated
 
-| File | Contents |
+Three files per language (`.h` for `-t c`, `.rs` for `-t rust`):
+
+| File | Purpose |
 |---|---|
-| `{isa}_intrinsics.h` / `.rs` | one inline-assembly wrapper per instruction |
-| `{isa}_structs.h` / `.rs` | a typed struct per [Operand](../yaml/types.md), with constructors and field accessors matching the declared bit layout |
-| `{isa}_csrs.h` / `.rs` | constants and accessors for your CSRs and their fields |
+| `{isa}_intrinsics.{h,rs}` | one inline-assembly wrapper per instruction |
+| `{isa}_structs.{h,rs}` | a typed struct per [Operand](../../yaml/types.md), with constructors and field accessors matching the declared bit layout |
+| `{isa}_csrs.{h,rs}` | constants and accessors for your CSRs and their fields |
 
 A generated struct, for a two-field `Point` operand:
 
@@ -27,7 +29,7 @@ static inline Point_t Point(uint32_t x, uint32_t y) { ... }
 The same bit layout your decoder decodes and your behaviors access - software
 and hardware can't drift apart, because both come from the one manifest.
 
-Schema/instruction [`constraints:`](../yaml/schemas.md#constraints) become
+Schema/instruction [`constraints:`](../../yaml/schemas.md#constraints) become
 runtime assertions in the wrappers, so invalid operand combinations fail at
 the call site rather than as silent wrong encodings.
 
@@ -50,11 +52,4 @@ their doc comment, since the wrapper is the only way to call them.
 
 ## Current boundaries
 
-- Wrappers cover operands that live in a single general-purpose register.
-  Instructions whose operands are floating-point or wider-than-word register
-  files (e.g. vector registers) are skipped, with a note on the console - they
-  need typed register classes or vector intrinsics, not a scalar asm wrapper.
-- Memory and branch-target immediates are wrapped as plain integer constants;
-  review the inline assembly before relying on them for those operand kinds.
-- Operand structs wider than standard C types carry a comment noting the
-  packing caveat.
+This project's boundaries are consolidated in one place - see [Limitations](../../limitations.md#c-and-rust-intrinsics).

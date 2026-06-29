@@ -181,7 +181,7 @@ means in the coverage report:
   a stack-less ISA is complete on its own terms. See `examples/npu-probe`.
 - **`custom`** - exactly the roles listed under `requires:`.
 
-Details: [compiler roles & coverage](../compiler/roles-and-coverage.md).
+Details: [compiler roles & coverage](../targets/compiler/roles-and-coverage.md).
 
 ## Object-format identity (`triple_arch`, `elf_machine`, …)
 
@@ -204,15 +204,8 @@ already know. If your immediate-field placements match an existing
 architecture's, you can register under its triple and reuse its relocations -
 then any stock linker links your programs. That's exactly what the
 [tutorial's pico32](../../examples/tutorial/README.md) does with `riscv32`.
-The full story: [linking - the ELF reality](../compiler/build-and-use.md#linking-the-elf-reality).
+The full story: [linking - the ELF reality](../targets/compiler/build-and-use.md#linking-the-elf-reality).
 
 ## Current boundaries
 
-- `xlen` must be one of 8/16/32/64/128; QEMU additionally caps the address
-  space at 64 bits (xlen=128 data is fine, 128-bit *addresses* are not):
-  generation fails with a message explaining the limit.
-- Register files wider than 64 bits (other than exactly 128) hold state but
-  can't be operated on in behaviors yet - the error names the instruction and
-  the file.
-- The machine model offers the two device types listed above; other
-  peripherals mean editing the generated `virt.c` (it's small and readable).
+This project's boundaries are consolidated in one place - see [Limitations](../limitations.md#isa-and-machine-model).

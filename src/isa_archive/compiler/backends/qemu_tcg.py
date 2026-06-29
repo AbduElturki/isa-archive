@@ -31,7 +31,7 @@ class QemuTCGBackend:
         if target_regfile in float_regs:
             return None
         # tcg_regfiles: files that have TCG globals of the xlen width. Every register
-        # this statement touches must be one — otherwise the generated tcg_gen_*_iN
+        # this statement touches must be one - otherwise the generated tcg_gen_*_iN
         # would operate at the wrong width (e.g. a 128-bit or 16-bit file).
         if tcg_regfiles is not None:
             touched_files = {ir.register_map[v] for v in ir.used_vars

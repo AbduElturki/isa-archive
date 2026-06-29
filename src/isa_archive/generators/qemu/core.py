@@ -23,7 +23,7 @@ logger = logging.getLogger("isa_archive.generators")
 def _interrupt_ctx(isa_reg, pc_mask) -> dict:
     """Hardware-interrupt-delivery context for the CPU template, derived from the
     ISA's `trap:` block. For an ISA without one, `do_interrupt_body` is None and
-    the CPU keeps its halt-on-exception fallback — byte-identical to before."""
+    the CPU keeps its halt-on-exception fallback - byte-identical to before."""
     trap_info = build_trap_info(isa_reg)
     if not trap_info:
         return {"do_interrupt_body": None, "irq_enable_expr": None,
@@ -77,7 +77,7 @@ def _write_isa_files(env, isa_reg, out_path: pathlib.Path, clang_format: bool = 
     render = make_renderer(env, ctx, clang_format=clang_format)
     name = isa_reg.name
     if wide:
-        # decodetree caps at 64 bits — hand-write decode-<isa>.c.inc, the file
+        # decodetree caps at 64 bits - hand-write decode-<isa>.c.inc, the file
         # <isa>_translate.c already #includes. (decodetree would produce it for
         # narrow ISAs at build time.)
         render("qemu/qemu_wide_decode.c.inc.j2", out_path / f"decode-{name}.c.inc")
@@ -148,7 +148,7 @@ def generate_qemu(registry: Registry, output_dir: str, clang_format: bool = Fals
 
         first_reg = isa_reg.registers[0] if isa_reg.registers else None
         # Initial-SP setup in the virt board only when the ISA declares an sp
-        # alias — never invent one positionally (accelerator ISAs have no stack).
+        # alias - never invent one positionally (accelerator ISAs have no stack).
         sp_reg_idx = first_reg.aliases.get("sp") if first_reg else None
         sp_reg_file = first_reg.name if first_reg else None
         _w = compute_insn_width(isa_reg, isa_reg.name, max_bits=_QEMU_MAX_INSN_BITS,
@@ -174,7 +174,7 @@ def generate_qemu(registry: Registry, output_dir: str, clang_format: bool = Fals
         render_to = make_renderer(env, ctx, clang_format=clang_format)
 
         if want("isa"):
-            # target/{isa}/ — ISA semantics + QOM boilerplate
+            # target/{isa}/ - ISA semantics + QOM boilerplate
             target_dir = root / "target" / isa
             target_dir.mkdir(parents=True, exist_ok=True)
             _write_isa_files(env, isa_reg, target_dir, clang_format=clang_format)
@@ -186,13 +186,13 @@ def generate_qemu(registry: Registry, output_dir: str, clang_format: bool = Fals
             render_to("qemu/qemu_target_kconfig.j2",    target_dir / "Kconfig")
 
         if want("machine"):
-            # hw/{isa}/ — machine definition
+            # hw/{isa}/ - machine definition
             hw_dir = root / "hw" / isa
             hw_dir.mkdir(parents=True, exist_ok=True)
             render_to("qemu/qemu_hw_virt_c.j2",  hw_dir / "virt.c")
             render_to("qemu/qemu_hw_meson.j2",   hw_dir / "meson.build")
             render_to("qemu/qemu_hw_kconfig.j2", hw_dir / "Kconfig")
-            # configs/ — build system configs
+            # configs/ - build system configs
             render_to("qemu/qemu_configs_target_mak.j2",
                       root / "configs" / "targets" / f"{isa}-softmmu.mak")
             render_to("qemu/qemu_configs_default_mak.j2",

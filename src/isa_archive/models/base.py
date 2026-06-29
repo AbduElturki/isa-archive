@@ -4,7 +4,7 @@ from typing import Dict, Optional
 
 class StrictModel(BaseModel):
     """Base for all manifest models: unknown YAML keys are an error, not silently
-    ignored — a typo'd key must never produce a quietly different model."""
+    ignored - a typo'd key must never produce a quietly different model."""
     model_config = {"extra": "forbid"}
 
 

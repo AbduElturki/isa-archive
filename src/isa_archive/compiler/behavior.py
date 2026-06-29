@@ -118,7 +118,7 @@ class BehaviorIR:
     @property
     def uses_sys(self) -> bool:
         """True if the behavior touches a CSR, a trap primitive, or a register
-        attribute — backends that can't model these (TCG fast path, LLVM ISel, RTL)
+        attribute - backends that can't model these (TCG fast path, LLVM ISel, RTL)
         use this to degrade gracefully instead of emitting wrong code."""
         return (self.reads_csr or self.writes_csr or self.uses_trap
                 or bool(self.attr_regs))
@@ -237,7 +237,7 @@ class BehaviorIR:
             if node.id in self.var_widths: return self.var_widths[node.id]
             if node.id in self.operands: return self.operands[node.id].spec.width
             raise ValueError(
-                f"Cannot determine bit-width of '{node.id}' — "
+                f"Cannot determine bit-width of '{node.id}' - "
                 "is it declared in the schema, register state, or operands?"
             )
         if isinstance(node, ast.Attribute):
@@ -262,7 +262,7 @@ class BehaviorIR:
                     w, _ = self._get_field_info(obj, node.attr)
                     return w
             raise ValueError(
-                f"Cannot determine bit-width of '{ast.unparse(node)}' — "
+                f"Cannot determine bit-width of '{ast.unparse(node)}' - "
                 "check that the type has this field"
             )
         if isinstance(node, ast.Constant): return node.value.bit_length() or 1

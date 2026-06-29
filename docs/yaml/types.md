@@ -65,7 +65,7 @@ Operands appear in three places:
    `i<width>` storage; behaviors get the fields).
 
 They also become real `struct`s in the generated C/Rust headers
-([`-t c` / `-t rust`](../targets/intrinsics.md)), so software constructs the
+([`-t c` / `-t rust`](../targets/intrinsics/README.md)), so software constructs the
 same values the hardware decodes.
 
 ## ScalarType - a custom element type

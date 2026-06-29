@@ -169,18 +169,10 @@ inline assembly or intrinsics). The bundled
 
 The LLVM generator pattern-matches these shapes to build instruction
 selection automatically - that's the role-inference layer described in
-[compiler roles & coverage](../compiler/roles-and-coverage.md). A behavior
+[compiler roles & coverage](../targets/compiler/roles-and-coverage.md). A behavior
 too unusual to match still simulates perfectly; the compiler lists it as
 custom-lowered in `COMPILER_COVERAGE.md` with the reason.
 
 ## Current boundaries
 
-- No `while`, user functions, or recursion (see Control flow).
-- No FP rounding-mode control or atomic/ordered memory operations - instructions
-  needing those can't be expressed yet. (Traps and CSR access *are* expressible -
-  see [CSRs and traps](#csrs-and-traps).)
-- Memory accesses are 8–64 bits per access (wider values: compose two
-  accesses with concatenation).
-- Every unsupported construct is a loud generation error with the instruction
-  named - if generation succeeded, the semantics you wrote are the semantics
-  you get, in every generator.
+This project's boundaries are consolidated in one place - see [Limitations](../limitations.md#behavior-dsl).

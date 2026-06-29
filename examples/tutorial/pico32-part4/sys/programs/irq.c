@@ -1,4 +1,4 @@
-/* irq.c — hardware-interrupt demo for the generated pico32sys-virt machine.
+/* irq.c - hardware-interrupt demo for the generated pico32sys-virt machine.
  *
  * Sets a trap vector, enables machine interrupts (mstatus.mie), then writes the
  * board's interrupt-test register (0x02000000) to raise the CPU's hard IRQ line.
@@ -7,7 +7,7 @@
  * then resumes here. PASS = the interrupt was taken with mcause.interrupt set.
  *
  * pico32sys uses RISC-V-compatible CSR encodings, so a stock riscv32 clang
- * assembles these CSR ops and the `interrupt` attribute's mret — but they need
+ * assembles these CSR ops and the `interrupt` attribute's mret - but they need
  * Zicsr + the privileged spec, so build with -march=rv32i_zicsr:
  *
  *   clang --target=riscv32-unknown-elf -march=rv32i_zicsr -mabi=ilp32 \

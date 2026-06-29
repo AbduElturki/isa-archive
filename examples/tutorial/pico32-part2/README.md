@@ -1,7 +1,7 @@
-# Part 2 — A real instruction set
+# Part 2 - A real instruction set
 
 Part 1's CPU computes straight ahead and falls off the end. This part adds
-control flow and loads — and tidies the project the way real ISAs are
+control flow and loads - and tidies the project the way real ISAs are
 organized. By the end: thirteen instructions, and assembly programs with
 loops running on your simulator.
 
@@ -14,7 +14,7 @@ The finished files are in this directory.
 | `SUB`, `OR` | a believable ALU |
 | `LW` | read memory back (part 1 could only write) |
 | `BEQ`, `BNE`, `BLT`, `BLTU` | decisions and loops |
-| `JAL`, `JALR` | jumps — and, quietly, function calls for part 3 |
+| `JAL`, `JALR` | jumps - and, quietly, function calls for part 3 |
 
 Not random picks: equality *and* ordering branches, word load *and* store,
 jump *and* indirect-jump-with-link are exactly the shapes a C compiler will
@@ -60,11 +60,11 @@ pico32/
     control.yaml        # BEQ BNE BLT BLTU JAL JALR
 ```
 
-Instructions now read like a datasheet — `opcode: BRANCH`,
-`funct3: F3_BRANCH.BEQ` — and a schema field can declare
+Instructions now read like a datasheet - `opcode: BRANCH`,
+`funct3: F3_BRANCH.BEQ` - and a schema field can declare
 `type: enum.F3_BRANCH` so fills are validated against the member list.
 
-## The branch layout — split immediates, for real
+## The branch layout - split immediates, for real
 
 Part 1's SType split an immediate in two. The branch format scatters a
 13-bit, 2-byte-aligned offset across **four** fields (bit 0 is always zero
@@ -88,7 +88,7 @@ spec:
     - { name: imm_12,   start: 31, width: 1, role: immediate }
 ```
 
-And the behavior reassembles the logical offset — the trailing literal `0`
+And the behavior reassembles the logical offset - the trailing literal `0`
 supplies the implied bit:
 
 ```yaml
@@ -107,18 +107,18 @@ spec:
   description: "if rs1 == rs2: pc ← pc + sext(offset)"
 ```
 
-Assigning `pc` *is* what makes it a branch — the simulator derives
+Assigning `pc` *is* what makes it a branch - the simulator derives
 taken/fall-through handling, and (next part) the compiler derives the branch
 condition, from this one definition. `BNE` is the same with `!=`; for the
 ordering pair note the signedness rule:
 
 ```yaml
-# BLT — signed comparison must say so
+# BLT - signed comparison must say so
 behavior: |
   if signed(rs1) < signed(rs2):
       pc = pc + sext({imm_12, imm_11, imm_10_5, imm_4_1, 0}, 13)
 
-# BLTU — comparisons are unsigned by default
+# BLTU - comparisons are unsigned by default
 behavior: |
   if rs1 < rs2:
       pc = pc + sext({imm_12, imm_11, imm_10_5, imm_4_1, 0}, 13)
@@ -127,7 +127,7 @@ behavior: |
 ## Jumps
 
 `JAL` saves the return address and jumps PC-relative (its 21-bit offset
-scatters across four fields — same trick, see this directory's `schemas.yaml`);
+scatters across four fields - same trick, see this directory's `schemas.yaml`);
 `JALR` jumps through a register:
 
 ```yaml
@@ -143,7 +143,7 @@ behavior: |
 ```
 
 Two statements: the link write and the jump. Call `JAL r1, target` /
-return `JALR r0, r1, 0` — function calls, one part early.
+return `JALR r0, r1, 0` - function calls, one part early.
 
 ## Rebuild and run
 
@@ -158,7 +158,7 @@ $ ninja -C qemu-build        # ~10 s
 $ isa-archive generate --isa pico32/isa.yaml -t asm -o build/asm
 ```
 
-First loop — `loop.s` prints the alphabet with a backward branch:
+First loop - `loop.s` prints the alphabet with a backward branch:
 
 ```asm
 .text
@@ -180,7 +180,7 @@ print_loop:
     sw    r4, r5, 0
 ```
 
-Labels are all the assembler needs — it computes the PC-relative offset and
+Labels are all the assembler needs - it computes the PC-relative offset and
 scatters the bits into the four immediate fields:
 
 ```sh
@@ -192,7 +192,7 @@ $ echo $?
 0
 ```
 
-Second program — `sum.s` (in this directory's `programs/`) stores 1…5 to RAM,
+Second program - `sum.s` (in this directory's `programs/`) stores 1 to 5 to RAM,
 loads them back, sums them, and **checks its own answer** with `BEQ`,
 printing `OK` or `NO`:
 
@@ -205,15 +205,15 @@ $ echo $?
 ```
 
 A CPU that can be wrong and know it. Debugging tip for when yours is: add
-`-d in_asm` to watch each instruction decode — wrong-looking disassembly
+`-d in_asm` to watch each instruction decode - wrong-looking disassembly
 means an encoding bug in your schema, not your program.
 
 ## Current boundaries (of this 13-instruction CPU)
 
-- It runs hand-written assembly only — one file, no symbols across files, no
+- It runs hand-written assembly only - one file, no symbols across files, no
   C. Part 3 is where the compiler arrives, and the ISA is already
   shape-complete for it.
 - Programs are placed by the standalone assembler at your reset vector; real
   linking (sections, relocations) also arrives with part 3's toolchain.
 
-[**Part 3: compiling C →**](../pico32-part3/README.md)
+[**Part 3: compiling C ->**](../pico32-part3/README.md)

@@ -78,7 +78,7 @@ isa-archive generate --isa FILE [-i FILE]... -t TARGET [-o DIR]
 | `--output`, `-o` | output directory (default `build`) |
 | `--uarch`, `-u` | uArch manifest(s) - needed by `-t verilog` |
 | `--format`, `-f` | documentation format for `-t docs` |
-| `--strict` | fail if the LLVM backend is incomplete for the ISA's [compiler profile](compiler/README.md#what-complete-means-target-profiles) |
+| `--strict` | fail if the LLVM backend is incomplete for the ISA's [compiler profile](targets/compiler/README.md#what-complete-means-target-profiles) |
 
 ### Targets
 
@@ -98,21 +98,21 @@ flowchart LR
 
 | Target | What you get | Guide |
 |---|---|---|
-| `qemu` | Complete QEMU target mirroring the QEMU source tree: `target/{isa}/` (decoder, helpers, CPU model), `hw/{isa}/virt.c` (machine), `configs/`, `patch_qemu.sh`, `INTEGRATE.md` | [QEMU guide](qemu/README.md) |
-| `qemu-isa` | Sub-target: just the ISA-semantics files (decoder/helpers/translator), flat in one directory | [QEMU guide](qemu/README.md) |
-| `qemu-machine` | Sub-target: the machine only - `hw/{isa}/virt.c` + `configs/` | [QEMU guide](qemu/README.md) |
-| `qemu-build` | Sub-target: the integration glue only - `patch_qemu.sh` + `INTEGRATE.md` | [QEMU guide](qemu/README.md) |
-| `llvm` | Complete LLVM backend: `llvm/lib/Target/{ISA}/` (TableGen + C++), `COMPILER_COVERAGE.md`, `patch_llvm.sh`, `INTEGRATE.md` | [Compiler guide](compiler/README.md) |
-| `llvm-tablegen` | Sub-target: just the `*.td` TableGen files | [Compiler guide](compiler/README.md) |
-| `llvm-backend` | Sub-target: just the C++ backend sources + CMake | [Compiler guide](compiler/README.md) |
-| `llvm-mc` | Sub-target: just `MCTargetDesc/` + `TargetInfo/` | [Compiler guide](compiler/README.md) |
-| `asm` | `{isa}_asm.py` - standalone Python assembler - and `linker.ld` | [Assembler](targets/assembler.md) |
-| `c` | `{isa}_intrinsics.h`, `{isa}_structs.h`, `{isa}_csrs.h` | [Intrinsics](targets/intrinsics.md) |
-| `rust` | `{isa}_intrinsics.rs`, `{isa}_structs.rs`, `{isa}_csrs.rs` | [Intrinsics](targets/intrinsics.md) |
+| `qemu` | Complete QEMU target mirroring the QEMU source tree: `target/{isa}/` (decoder, helpers, CPU model), `hw/{isa}/virt.c` (machine), `configs/`, `patch_qemu.sh`, `INTEGRATE.md` | [QEMU guide](targets/qemu/README.md) |
+| `qemu-isa` | Sub-target: just the ISA-semantics files (decoder/helpers/translator), flat in one directory | [QEMU guide](targets/qemu/README.md) |
+| `qemu-machine` | Sub-target: the machine only - `hw/{isa}/virt.c` + `configs/` | [QEMU guide](targets/qemu/README.md) |
+| `qemu-build` | Sub-target: the integration glue only - `patch_qemu.sh` + `INTEGRATE.md` | [QEMU guide](targets/qemu/README.md) |
+| `llvm` | Complete LLVM backend: `llvm/lib/Target/{ISA}/` (TableGen + C++), `COMPILER_COVERAGE.md`, `patch_llvm.sh`, `INTEGRATE.md` | [Compiler guide](targets/compiler/README.md) |
+| `llvm-tablegen` | Sub-target: just the `*.td` TableGen files | [Compiler guide](targets/compiler/README.md) |
+| `llvm-backend` | Sub-target: just the C++ backend sources + CMake | [Compiler guide](targets/compiler/README.md) |
+| `llvm-mc` | Sub-target: just `MCTargetDesc/` + `TargetInfo/` | [Compiler guide](targets/compiler/README.md) |
+| `asm` | `{isa}_asm.py` - standalone Python assembler - and `linker.ld` | [Assembler](targets/assembler/README.md) |
+| `c` | `{isa}_intrinsics.h`, `{isa}_structs.h`, `{isa}_csrs.h` | [Intrinsics](targets/intrinsics/README.md) |
+| `rust` | `{isa}_intrinsics.rs`, `{isa}_structs.rs`, `{isa}_csrs.rs` | [Intrinsics](targets/intrinsics/README.md) |
 | `cpp-isa` | `{isa}` C++ ISA-description headers (enums, decode, metadata) for your own models | |
-| `verilog` | `{isa}_operands.sv` + per-uArch-block modules + `{uarch}_top.sv` | [Verilog](targets/verilog.md) |
-| `docs` | `{isa}_reference.md` / `.html` / `.pdf` | [Reference manuals](targets/reference-manuals.md) |
-| `docs-md` · `docs-html` · `docs-pdf` | Sub-targets: a single documentation format (the parent `docs` honors `--format`) | [Reference manuals](targets/reference-manuals.md) |
+| `verilog` | `{isa}_operands.sv` + per-uArch-block modules + `{uarch}_top.sv` | [Verilog](targets/verilog/README.md) |
+| `docs` | `{isa}_reference.md` / `.html` / `.pdf` | [Reference manuals](targets/reference-manuals/README.md) |
+| `docs-md` · `docs-html` · `docs-pdf` | Sub-targets: a single documentation format (the parent `docs` honors `--format`) | [Reference manuals](targets/reference-manuals/README.md) |
 | `all` | verilog, llvm, c, rust, docs, and qemu-isa in one run | |
 
 ### How errors behave
@@ -128,4 +128,4 @@ Error: pico32: QEMU generation failed for 1 instruction(s):
 If a `generate` run succeeds, the output is structurally valid for its
 toolchain. The LLVM target additionally writes `COMPILER_COVERAGE.md`
 describing exactly what the generated compiler can and cannot lower - see
-[reading the coverage report](compiler/roles-and-coverage.md).
+[reading the coverage report](targets/compiler/roles-and-coverage.md).

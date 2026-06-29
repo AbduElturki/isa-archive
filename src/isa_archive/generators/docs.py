@@ -34,7 +34,7 @@ def generate_docs(registry: Registry, output_dir: str, doc_format: str = "md"):
                     filename = f"{isa_reg.name}_reference.pdf"
                     HTML(string=html_content).write_pdf(out_path / filename)
                 except ImportError:
-                    logger.error("weasyprint not installed — skipping PDF generation")
+                    logger.error("weasyprint not installed - skipping PDF generation")
                 except Exception as e:
                     logger.error(f"Error generating PDF: {e}")
             else:

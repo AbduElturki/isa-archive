@@ -91,6 +91,50 @@ uv run isa-archive init my-cpu --xlen 32 --output-dir .
 empty directory across four parts - simulate it, write assembly loops, compile C for it, then grow
 it with extensions.
 
+### What the YAML needs
+
+Three kinds in one file are enough to generate a simulator, an assembler, decode/encode headers, and
+a manual:
+
+```yaml
+kind: ISA                                   # the root: name, data width, register files
+metadata: { name: tiny }
+spec:
+  version: "1.0"
+  xlen: 32
+  state:
+    registers:
+      - { name: r, width: 32, count: 16 }   # at least one register file
+---
+kind: Schema                                # a bit-layout, shared by many instructions
+metadata: { name: RType }
+spec:
+  length: 32                                # instruction width in bits
+  fields:
+    - { name: opcode, start: 0,  width: 8, role: opcode }
+    - { name: rd,     start: 8,  width: 4, role: register, type: r }
+    - { name: rs1,    start: 12, width: 4, role: register, type: r }
+    - { name: rs2,    start: 16, width: 4, role: register, type: r }
+---
+kind: Instruction                           # one operation: schema + fixed bits + behavior
+metadata: { name: ADD }
+spec:
+  schema: RType
+  opcode: 0x01
+  behavior: "rd = rs1 + rs2"
+```
+
+- **Required** for any output: an `ISA` (with a register file), at least one `Schema`, and the
+  `Instruction`s that reference it - each with an opcode value and a one-line `behavior:`.
+- **Add as you need more:** `abi:` + `machine:` to get a full QEMU board and a C compiler;
+  [`Enum`](docs/yaml/types.md) / [`Constant`](docs/yaml/types.md) for named field values and opcodes;
+  [`Operand`](docs/yaml/types.md) / [`ScalarType`](docs/yaml/types.md) for structured fields and
+  custom element types; `state.csrs` + `trap:` for control/status registers and traps; a
+  [`uArch`](docs/yaml/uarch.md) manifest (`--uarch`) for the SystemVerilog block modules.
+
+Every field of every kind is in the [manifest reference](docs/yaml/README.md); split it across files
+with `includes:` and reuse a base with `extends:`.
+
 ---
 
 ## ⚙️ How it works
@@ -231,7 +275,7 @@ Details: [docs/yaml/project.md](docs/yaml/project.md).
 | Example | What it shows |
 |---|---|
 | [`examples/tutorial/`](examples/tutorial/README.md) | **pico32** - a 32-bit CPU built across four narrated parts (simulate → assembly → compile C → extend). Part 4 adds independent `extends:` layers: `mul` (hardware multiply), `fp` (float register class + hard-float ABI), `sys` (CSRs). |
-| [`examples/npu-probe/`](examples/npu-probe/README.md) | A deliberately non-CPU target - big-endian, 128-bit vector and 1-bit predicate register files, a stack-less `kernel-only` profile - that keeps the "works for accelerators, not just CPUs" claim honest. |
+| [`examples/npu-probe/`](examples/npu-probe/README.md) | A deliberately non-CPU target - big-endian, 128-bit vector and 1-bit predicate register files, a stack-less `kernel-only` profile - that demonstrates the tool's support for accelerators, not just CPUs. |
 
 [`examples/tutorial/scripts/`](examples/tutorial/scripts/) automates the end-to-end QEMU + LLVM
 build the tutorial walks through by hand.
@@ -247,7 +291,7 @@ Full docs live in [`docs/`](docs/README.md):
 | [Concepts](docs/getting-started/concepts.md) | The manifest model and the generation pipeline |
 | [Manifest reference](docs/yaml/README.md) | Every YAML kind, field by field, plus the [behavior DSL](docs/yaml/behavior.md) |
 | [CLI reference](docs/cli.md) | Every command, flag, and target |
-| [QEMU guide](docs/qemu/README.md) · [Compiler guide](docs/compiler/README.md) | The generated simulator and compiler, and how to build them |
+| [QEMU guide](docs/targets/qemu/README.md) · [Compiler guide](docs/targets/compiler/README.md) | The generated simulator and compiler, and how to build them |
 | [Target guides](docs/targets/README.md) | Assembler · intrinsics · SystemVerilog · reference manuals · C++ ISA headers |
 | [Developer docs](docs/development/README.md) | How it's built (architecture) and how to extend it |
 
@@ -255,7 +299,7 @@ Full docs live in [`docs/`](docs/README.md):
 
 ```
 docs/                 ← User-facing documentation (getting-started, yaml, qemu, compiler, targets)
-examples/             ← pico32 tutorial (parts 1–4 + mul/fp/sys + scripts) and the npu-probe target
+examples/             ← pico32 tutorial (parts 1-4 + mul/fp/sys + scripts) and the npu-probe target
 src/isa_archive/
   cli.py              ← Typer CLI: parse / generate / build / init
   models/             ← Pydantic manifest models (ISA, Schema, Instruction, uArch, Project, …)
@@ -281,32 +325,14 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) to get started.
 ## ⚠️ Current limitations
 
 ISA-Archive is **alpha (0.1.0)** - the manifest schema, CLI, and generated output may change
-between versions. The honest boundaries today:
+between versions. A guiding principle ensures predictability: generation **fails loudly** when
+a manifest asks for something a backend can't model, naming the instruction - never silent wrong
+output.
 
-- **A working C compiler is ISA-dependent.** The LLVM backend needs the ABI roles a target profile
-  requires; ISAs missing them - or missing ops like multiply, shifts, or bitwise - get the QEMU
-  simulator and the assembler, not a full `clang`. Stack and accumulator machines don't fit LLVM's
-  register-allocation model. Accelerators use `profile: kernel-only` (no compiler expected). The
-  `--strict` coverage report tells you exactly what's missing.
-- **Build verification.** CI builds the generated QEMU for pico32 and runs `fib(10)` end to end on
-  every PR; the generated LLVM/`clang` is built and run on a nightly job. Targets and ISAs beyond
-  pico32 are still checked only at the source level by the test suite.
-- **Encoding widths.** Instruction words up to **512 bits**, one uniform width per ISA; an
-  individual field is read as a value up to 64 bits. Data width (`xlen`) is a power of two from 8 to
-  128.
-- **Register model is static.** Fixed-shape vector/tile register files; no runtime- or
-  scalable-length (VLA / SVE / RVV-style) shapes, register pairs, sub-register aliasing, or banking.
-- **QEMU scope.** The CPU vectors hardware interrupts and synchronous exceptions through an ISA's
-  `trap:` CSRs (`mepc`/`mcause`/`mstatus`/`mtvec`) instead of halting, and a generated `irq_test`
-  machine device raises the CPU's IRQ line end to end (the pico32sys `irq.c` demo). A full
-  interrupt-controller / priority model is not generated. CSR/trap behaviors remain simulator-side.
-  Wide (>64-bit) instruction fetch is byte-order-aware (little- and big-endian).
-- **Decode/encode live in the C++ headers.** There is no separate LLVM `MCDisassembler`; the
-  [`cpp-isa`](docs/targets/cpp-isa.md) target is the standalone, compile-tested decode + encode side.
+Every current boundary - by tool area (behavior DSL, registers, encodings, …) and by target (QEMU,
+LLVM, assembler, C++ headers, intrinsics, SystemVerilog, manuals) - is consolidated in one place:
 
-Per-area boundaries are documented in each guide under **Current boundaries**
-([compiler](docs/compiler/README.md), [QEMU](docs/qemu/README.md),
-[registers](docs/yaml/registers.md)).
+**→ [docs/limitations.md](docs/limitations.md)**
 
 ## ⚖️ License
 

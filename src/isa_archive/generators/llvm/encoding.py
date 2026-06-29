@@ -26,11 +26,11 @@ def _get_schema_combined_imm(schema) -> Optional[dict]:
     Returns None for schemas with ≤1 immediate field or non-parseable names.
 
     The returned dict contains:
-      - width: int              — total bits in the combined immediate (max_bit + 1)
-      - includes_lsb: bool      — True if any field covers bit 0 (→ data offset like S-type)
+      - width: int              - total bits in the combined immediate (max_bit + 1)
+      - includes_lsb: bool      - True if any field covers bit 0 (→ data offset like S-type)
                                   False → branch/jump target (bit 0 always 0, like B/J-type)
-      - operand_name: str       — "simm{N}" for data offsets, "brtarget"/"jaltarget" for targets
-      - hw_assignments: list    — [(hw_high, hw_low, imm_high, imm_low), …] for bit routing
+      - operand_name: str       - "simm{N}" for data offsets, "brtarget"/"jaltarget" for targets
+      - hw_assignments: list    - [(hw_high, hw_low, imm_high, imm_low), …] for bit routing
     """
     imm_fields = [f for f in schema.spec.fields
                   if f.role == FieldRole.IMMEDIATE and not getattr(f, 'is_fixed_value', False)]
@@ -44,7 +44,7 @@ def _get_schema_combined_imm(schema) -> Optional[dict]:
     for f in imm_fields:
         parsed = _parse_imm_field_range(f.name)
         if parsed is None:
-            return None  # Naming convention not followed — fall back to split fields
+            return None  # Naming convention not followed - fall back to split fields
         imm_high, imm_low = parsed
         expected_width = imm_high - imm_low + 1
         if expected_width != f.width:

@@ -6,7 +6,7 @@ from .machine import MachineLayout
 from .abi import ABI
 from .compiler import CompilerProfile
 class RegAttr(StrictModel):
-    """A named per-register attribute — runtime state carried alongside a register's
+    """A named per-register attribute - runtime state carried alongside a register's
     data (e.g. a tile's layout/dtype/valid flag). Indexed by register number, read
     and written from behaviors as `reg.attr`."""
     name: str

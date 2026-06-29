@@ -131,8 +131,8 @@ def _build_wide_decode_meta(isa_reg) -> list:
     For each instruction: ``fixed`` (the opcode/constant/reserved bits to match) and
     ``args`` (every non-fixed field to extract into ``arg_<fn>``). The field set and
     the sign-extension flag exactly mirror what decodetree produces for <=64-bit
-    ISAs — raw per-field extraction, split immediates left for the helper to
-    reassemble — so the unchanged ``trans_*`` functions (which read ``a-><field>``)
+    ISAs - raw per-field extraction, split immediates left for the helper to
+    reassemble - so the unchanged ``trans_*`` functions (which read ``a-><field>``)
     work identically. Sorted most-specific-first (most fixed bits) so a more general
     encoding can't shadow a more specific one.
     """
@@ -174,7 +174,7 @@ def _validate_for_qemu(isa_reg) -> None:
             f"8, 16, 32, 64, or 128; got xlen={isa_reg.xlen}. (8/16 are "
             f"emulated over a 32-bit guest word with masked PC/addresses; "
             f"xlen=128 has native 128-bit registers/arithmetic but a 64-bit "
-            f"PC/address space — TCG has no 128-bit guest addresses.)"
+            f"PC/address space - TCG has no 128-bit guest addresses.)"
         )
     storage = _regfile_storage(isa_reg)
     errors = []
