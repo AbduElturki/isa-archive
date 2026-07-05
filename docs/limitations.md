@@ -22,8 +22,11 @@ pico32 are checked only at the source level by the test suite.
 
 ### Behavior DSL
 
-- Control flow is `if` / `elif` / `else` and `for … in range(...)` only - no `while`, no
-  user-defined functions, no recursion.
+- Control flow is `if` / `elif` / `else` and `for … in range(...)` only - no `while`.
+- Reusable functions ([`kind: BehaviorFunc`](yaml/behavior.md#reusable-functions-kind-behaviorfunc))
+  are inlined and v1-restricted: exactly one tail `return` for a value function (no early/conditional
+  returns), a call must be the whole right-hand side of an assignment or a bare statement (no
+  `f(a) + 1` or `f(g(a))`), and no recursion.
 - No FP rounding-mode control, and no atomic / ordered memory operations; instructions needing those
   can't be expressed yet. (Traps and CSR access *are* expressible.)
 - Memory accesses are 8-64 bits each; for wider values, compose two accesses with concatenation.

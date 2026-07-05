@@ -95,9 +95,46 @@ behavior: |
       acc = acc + mem8[rs1 + i]
 ```
 
-`if`/`elif`/`else` and `for … in range(...)` only. No `while`, no function
+`if`/`elif`/`else` and `for … in range(...)` only. No `while`, no in-line function
 definitions, no recursion - anything else is a generation-time error naming
 the instruction.
+
+## Reusable functions (`kind: BehaviorFunc`)
+
+Common semantics can be factored into a named, typed function declared once and
+called from any instruction's behavior. Each arg has a `type` (a scalar like
+`i32`/`f32`, a [`ScalarType`](types.md), or an [`Operand`](types.md)); it's
+read-only by default or `editable: true` for an out/inout parameter. The body is
+this same DSL and may `return` a value (declare `returns:`) or nothing:
+
+```yaml
+kind: BehaviorFunc
+metadata: { name: clamp }
+spec:
+  args:
+    - { name: x,  type: i32 }
+    - { name: lo, type: i32 }
+    - { name: hi, type: i32 }
+  returns: i32
+  behavior: |
+    if x < lo: x = lo
+    if x > hi: x = hi
+    return x
+```
+
+```yaml
+behavior: "rd = clamp(rs1, 0, 15)"     # value used as the whole right-hand side
+behavior: "zero_reg(rd)"               # a void function, called as a statement
+```
+
+Calls are **inlined** before any backend runs, so a BehaviorFunc works in every
+target with no runtime call. A read-only scalar arg is pass-by-value (the body may
+reassign it locally without affecting the caller); an `editable` arg must be passed
+an lvalue (a register, `reg.attr`, or `vd[i]`) and writes reflect back. Rules:
+exactly one tail `return` for a value function; a call must be the whole
+right-hand side of an assignment or a bare statement (`f(a) + 1` is rejected);
+recursion is not allowed; and calling a value-returning function without using its
+result logs a warning.
 
 ## Width discipline
 

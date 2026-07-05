@@ -1,0 +1,54 @@
+# A minimal ISA exercising kind: BehaviorFunc end to end.
+kind: ISA
+metadata: { name: bfunc }
+spec:
+  version: "1.0"
+  xlen: 32
+  compiler:
+    profile: kernel-only
+  state:
+    registers:
+      - { name: r, width: 32, count: 16 }
+---
+kind: BehaviorFunc
+metadata: { name: clamp, description: "clamp x into [lo, hi]" }
+spec:
+  args:
+    - { name: x,  type: i32 }
+    - { name: lo, type: i32 }
+    - { name: hi, type: i32 }
+  returns: i32
+  behavior: |
+    if x < lo: x = lo
+    if x > hi: x = hi
+    return x
+---
+kind: BehaviorFunc
+metadata: { name: zero_reg, description: "write 0 to an editable register arg" }
+spec:
+  args:
+    - { name: t, type: i32, editable: true }
+  behavior: "t = 0"
+---
+kind: Schema
+metadata: { name: RType }
+spec:
+  length: 32
+  fields:
+    - { name: opcode, start: 0,  width: 8, role: opcode }
+    - { name: rd,     start: 8,  width: 4, role: register, type: r }
+    - { name: rs1,    start: 12, width: 4, role: register, type: r }
+---
+kind: Instruction
+metadata: { name: CLAMP15, description: "rd = clamp(rs1, 0, 15)" }
+spec:
+  schema: RType
+  opcode: 0x01
+  behavior: "rd = clamp(rs1, 0, 15)"
+---
+kind: Instruction
+metadata: { name: ZERO, description: "rd = 0 via a void editable-arg function" }
+spec:
+  schema: RType
+  opcode: 0x02
+  behavior: "zero_reg(rd)"

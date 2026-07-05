@@ -102,6 +102,7 @@ def _build_instr_info(instr, schema, isa_reg: ISARegistry) -> dict:
             var_widths=var_widths,
             operands=isa_reg.operands,
             csrs={},
+            behavior_funcs=isa_reg.behavior_funcs,
         )
         modifies_pc = ir.modifies_pc
     except Exception:

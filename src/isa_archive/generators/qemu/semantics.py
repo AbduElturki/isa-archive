@@ -31,7 +31,8 @@ def _instr_qemu_info(instr, isa_reg, storage: dict[str, dict]) -> dict:
     ir = BehaviorIR(instr.spec.behavior, register_map=reg_map, var_widths=var_widths,
                     operands=isa_reg.operands, csrs=csr_map(isa_reg),
                     regfile_shapes=build_regfile_shapes(isa_reg),
-                    regfile_attrs=build_regfile_attrs(isa_reg))
+                    regfile_attrs=build_regfile_attrs(isa_reg),
+                    behavior_funcs=isa_reg.behavior_funcs)
 
     wide_files = sorted({reg_map[v] for v in ir.used_vars
                          if v in reg_map and storage[reg_map[v]]["storage_bits"] is None})

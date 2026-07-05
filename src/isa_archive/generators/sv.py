@@ -18,7 +18,8 @@ def generate_verilog(registry: Registry, output_dir: str, clang_format: bool = F
             register_map=reg_map,
             var_widths=var_widths,
             operands=isa_reg.operands,
-            csrs={}
+            csrs={},
+            behavior_funcs=isa_reg.behavior_funcs,
         )
         return VerilogBackend(ir).translate()
 
@@ -72,7 +73,8 @@ def generate_verilog(registry: Registry, output_dir: str, clang_format: bool = F
                     register_map=reg_map,
                     var_widths=var_widths,
                     operands=isa_reg.operands,
-                    csrs={}
+                    csrs={},
+                    behavior_funcs=isa_reg.behavior_funcs,
                 )
 
                 for var in ir.read_vars:

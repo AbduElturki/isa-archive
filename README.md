@@ -213,6 +213,7 @@ role it requires.
 | `Enum` | Named values for a field (`F3_ALU.ADD_SUB`) | [types.md](docs/yaml/types.md) |
 | `Constant` | A named number (`opcode: OP`) | [types.md](docs/yaml/types.md) |
 | `ScalarType` | A custom element type (sub-byte int, FP8, tf32, …) a register `type:` can name | [types.md](docs/yaml/types.md) |
+| `BehaviorFunc` | A reusable, typed function callable inside `behavior:` strings | [behavior.md](docs/yaml/behavior.md#reusable-functions-kind-behaviorfunc) |
 | `uArch` | A micro-architecture: functional blocks with latency/count/handled exec-types | [uarch.md](docs/yaml/uarch.md) |
 | `Project` | A build config: which targets to generate, and where | [project.md](docs/yaml/project.md) |
 

@@ -7,6 +7,7 @@ _loader_logger = logging.getLogger("isa_archive.loader")
 from ..models import ManifestBase, Operand, Schema, Instruction, ISA, uArch, Constant, EnumDef
 from ..models.project import Project
 from ..models.scalar_type_def import ScalarTypeDef
+from ..models.behavior_func import BehaviorFunc
 from ..models.machine import MachineLayout
 from ..models.enums import FieldRole
 from ..models import scalar_types
@@ -26,6 +27,7 @@ class ISARegistry:
         self.constants: Dict[str, Constant] = {}
         self.enums: Dict[str, EnumDef] = {}
         self.scalar_types: Dict[str, ScalarTypeDef] = {}
+        self.behavior_funcs: Dict[str, BehaviorFunc] = {}  # reusable DSL functions
         self._source_files: Dict[str, str] = {}  # manifest name → source file path
         # Architectural State
         self.registers = manifest.spec.state.registers
@@ -51,6 +53,8 @@ class ISARegistry:
         elif isinstance(manifest, ScalarTypeDef):
             self.scalar_types[name] = manifest
             scalar_types.register_from_manifest(manifest)  # visible to resolve() at once
+        elif isinstance(manifest, BehaviorFunc):
+            self.behavior_funcs[name] = manifest
 
     @property
     def display_name(self) -> str:
@@ -78,6 +82,7 @@ class ISARegistry:
         self._validate_enum_refs()
         self._validate_csr_addresses()
         self._validate_schema_fields()
+        self._validate_behavior_funcs()  # before instructions: funcs must be known
         instr_patterns = self._validate_instructions()
         self._validate_decoder_collisions(instr_patterns)
         self._warn_opcode_width_inconsistency()
@@ -213,6 +218,75 @@ class ISARegistry:
                             f"for {reg.count} registers in '{reg.name}'"
                         )
 
+    def _validate_behavior_funcs(self):
+        """Structural checks on `kind: BehaviorFunc` (before instruction validation,
+        so calls can be resolved): arg/return types resolve, exactly one tail
+        `return` iff `returns:` is set, no assignment to a read-only arg, and no
+        recursion (direct or transitive) - inlining can't expand a cycle."""
+        import ast
+        funcs = self.behavior_funcs
+        if not funcs:
+            return
+        call_graph = {}
+        for fname, fdef in funcs.items():
+            src = self._src(fname)
+            for a in fdef.spec.args:
+                if scalar_types.resolve(a.type) is None and a.type not in self.operands:
+                    raise ValueError(f"BehaviorFunc '{fname}' arg '{a.name}' has unknown "
+                                     f"type '{a.type}'{src}")
+            if fdef.spec.returns is not None and \
+                    scalar_types.resolve(fdef.spec.returns) is None and \
+                    fdef.spec.returns not in self.operands:
+                raise ValueError(f"BehaviorFunc '{fname}' has unknown return type "
+                                 f"'{fdef.spec.returns}'{src}")
+            try:
+                tree = ast.parse(fdef.spec.behavior)
+            except SyntaxError:
+                raise ValueError(f"BehaviorFunc '{fname}' has invalid behavior syntax{src}")
+            returns = [n for n in ast.walk(tree) if isinstance(n, ast.Return)]
+            if fdef.spec.returns is not None:
+                if not tree.body or not isinstance(tree.body[-1], ast.Return) \
+                        or len(returns) != 1 or tree.body[-1].value is None:
+                    raise ValueError(f"BehaviorFunc '{fname}' declares `returns:` and must "
+                                     f"have exactly one `return <value>`, as the last "
+                                     f"statement{src}")
+            elif returns:
+                raise ValueError(f"BehaviorFunc '{fname}' returns nothing (no `returns:`) "
+                                 f"but its body has a `return`{src}")
+            # A read-only *scalar* arg may be reassigned inside the body (pass-by-value:
+            # the change is local). But a read-only *operand* arg can't be written -
+            # only editable operand args write back to the caller.
+            ro_operand = {a.name for a in fdef.spec.args
+                          if a.type in self.operands and not a.editable}
+            for n in ast.walk(tree):
+                if isinstance(n, (ast.Assign, ast.AugAssign)):
+                    targets = n.targets if isinstance(n, ast.Assign) else [n.target]
+                    for t in targets:
+                        if isinstance(t, ast.Name) and t.id in ro_operand:
+                            raise ValueError(f"BehaviorFunc '{fname}' assigns to read-only "
+                                             f"operand arg '{t.id}' - mark it "
+                                             f"`editable: true`{src}")
+            call_graph[fname] = {n.func.id for n in ast.walk(tree)
+                                 if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
+                                 and n.func.id in funcs}
+        # Cycle detection (DFS with grey/black colouring).
+        WHITE, GREY, BLACK = 0, 1, 2
+        color = {f: WHITE for f in funcs}
+
+        def _dfs(u):
+            color[u] = GREY
+            for v in call_graph.get(u, ()):
+                if color[v] == GREY:
+                    raise ValueError(f"BehaviorFunc '{u}' is part of a recursive call "
+                                     f"cycle; recursion is not supported{self._src(u)}")
+                if color[v] == WHITE:
+                    _dfs(v)
+            color[u] = BLACK
+
+        for f in funcs:
+            if color[f] == WHITE:
+                _dfs(f)
+
     def _validate_instructions(self) -> dict:
         logger = logging.getLogger("isa_archive.validator")
         arch_state_names = (
@@ -293,7 +367,11 @@ class ISARegistry:
                     csrs=csr_map(self),
                     regfile_shapes=build_regfile_shapes(self),
                     regfile_attrs=build_regfile_attrs(self),
+                    behavior_funcs=self.behavior_funcs,
                 )
+                for w in ir.inline_warnings:
+                    logging.getLogger("isa_archive.validator").warning(
+                        f"Instruction '{instr.metadata.name}': {w}")
                 self._validate_sys_usage(instr, ir)
                 if ir.unknown_reg_attrs:
                     rg, at = sorted(ir.unknown_reg_attrs)[0]
@@ -399,7 +477,7 @@ def load_manifest(data: Dict[str, Any]) -> ManifestBase:
         "ISA": ISA, "uArch": uArch, "Operand": Operand,
         "Schema": Schema, "Instruction": Instruction,
         "Constant": Constant, "Enum": EnumDef, "Project": Project,
-        "ScalarType": ScalarTypeDef,
+        "ScalarType": ScalarTypeDef, "BehaviorFunc": BehaviorFunc,
     }
     if kind not in mapping: raise ValueError(f"Unknown kind: {kind}")
     return mapping[kind](**data)
@@ -430,6 +508,7 @@ def load_isa(isa_path: str, global_registry: Optional[Registry] = None) -> ISARe
         isa_reg.instructions.update(base_isa_reg.instructions)
         isa_reg.constants.update(base_isa_reg.constants)
         isa_reg.enums.update(base_isa_reg.enums)
+        isa_reg.behavior_funcs.update(base_isa_reg.behavior_funcs)
         isa_reg._source_files.update(base_isa_reg._source_files)
         if not isa_reg.registers:
             isa_reg.registers = base_isa_reg.registers

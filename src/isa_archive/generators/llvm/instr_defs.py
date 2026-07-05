@@ -73,6 +73,7 @@ def _build_instr_defs(isa_reg, ISA_upper: str,
                 csrs={},
                 regfile_shapes=build_regfile_shapes(isa_reg),
                 regfile_attrs=build_regfile_attrs(isa_reg),
+                behavior_funcs=isa_reg.behavior_funcs,
             )
             dag_backend = LLVMDagBackend(
                 ir, xlen=isa_reg.xlen, reg_class_info=reg_class_info,
