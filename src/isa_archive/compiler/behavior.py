@@ -84,7 +84,8 @@ class BehaviorIR:
                  operands: Optional[Dict[str, "Operand"]] = None,
                  csrs: Optional[Dict[str, "CSR"]] = None,
                  regfile_shapes: Optional[Dict[str, tuple]] = None,
-                 regfile_attrs: Optional[Dict[str, Dict[str, int]]] = None):
+                 regfile_attrs: Optional[Dict[str, Dict[str, int]]] = None,
+                 behavior_funcs: Optional[Dict] = None):
         try:
             self.tree = ast.parse(behavior_str)
         except SyntaxError:
@@ -92,6 +93,11 @@ class BehaviorIR:
         self.register_map = register_map or {}
         self.var_widths = var_widths or {}
         self.operands = operands or {}
+        # Expand kind: BehaviorFunc calls before any analysis - every backend then
+        # lowers the already-inlined tree (the func's locals become temporaries).
+        from .behavior_inline import inline_behavior_funcs
+        self.tree, self.inline_warnings = inline_behavior_funcs(
+            self.tree, behavior_funcs or {}, self.operands)
         self.csrs = csrs or {}
         # {register-file name → (element ScalarType, shape list)} for shaped files.
         self.regfile_shapes = regfile_shapes or {}

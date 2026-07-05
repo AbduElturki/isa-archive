@@ -14,6 +14,7 @@ from .abi import ABI
 from .project import Project, ProjectSpec, GenerateEntry
 from .scalar_types import ScalarType, ArithClass, resolve as resolve_scalar_type, of_register
 from .scalar_type_def import ScalarTypeDef, ScalarTypeSpec
+from .behavior_func import BehaviorFunc, BehaviorFuncSpec, ArgDef
 
 __all__ = [
     "FieldRole",
@@ -57,4 +58,7 @@ __all__ = [
     "of_register",
     "ScalarTypeDef",
     "ScalarTypeSpec",
+    "BehaviorFunc",
+    "BehaviorFuncSpec",
+    "ArgDef",
 ]

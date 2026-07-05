@@ -5,7 +5,7 @@ has the same envelope:
 
 ```yaml
 apiVersion: isa-archive/v1
-kind: ISA | Schema | Instruction | Operand | Enum | Constant | ScalarType | uArch
+kind: ISA | Schema | Instruction | Operand | Enum | Constant | ScalarType | BehaviorFunc | uArch
 metadata:
   name: <unique name>
   description: <optional, shows up in generated manuals>
@@ -26,6 +26,7 @@ Multiple manifests can live in one file, separated by `---`.
 | `Enum` | Named values for a field (`F3_BRANCH.BEQ`) | [types.md](types.md) |
 | `Constant` | A named number (`opcode: STORE`) | [types.md](types.md) |
 | `ScalarType` | A custom element type (sub-byte int, FP8, tf32, …) for a register `type:` | [types.md](types.md) |
+| `BehaviorFunc` | A reusable, typed function callable inside `behavior:` strings | [behavior.md](behavior.md#reusable-functions-kind-behaviorfunc) |
 | `uArch` | A micro-architecture implementing the ISA (for `-t verilog`) | [uarch.md](uarch.md) |
 | `Project` | A build config: which targets to generate, and where (`isa-archive build`) | [project.md](project.md) |
 
