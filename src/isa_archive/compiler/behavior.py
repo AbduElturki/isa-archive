@@ -1,8 +1,25 @@
 import ast
+import copy
 from typing import TYPE_CHECKING, Dict, Set, Optional, Tuple
 
 if TYPE_CHECKING:
     from ..models import Operand, CSR
+
+
+class _DesugarAugAssign(ast.NodeTransformer):
+    """Rewrite `x += v` to `x = x + v` before analysis/translation, so augmented
+    assignments flow through the exact same backend path as plain assignments
+    (PC masking and branch tracking, zero-register guards, register write masks,
+    CSR read-modify-write). Backends therefore never see an AugAssign node."""
+
+    def visit_AugAssign(self, node: ast.AugAssign) -> ast.Assign:
+        read = copy.deepcopy(node.target)
+        read.ctx = ast.Load()
+        new = ast.Assign(
+            targets=[node.target],
+            value=ast.BinOp(left=read, op=node.op, right=node.value),
+        )
+        return ast.copy_location(new, node)
 
 
 class BehaviorIR:
@@ -98,6 +115,8 @@ class BehaviorIR:
         from .behavior_inline import inline_behavior_funcs
         self.tree, self.inline_warnings = inline_behavior_funcs(
             self.tree, behavior_funcs or {}, self.operands)
+        # Desugar AFTER inlining so `x += v` inside a function body is covered too.
+        self.tree = ast.fix_missing_locations(_DesugarAugAssign().visit(self.tree))
         self.csrs = csrs or {}
         # {register-file name → (element ScalarType, shape list)} for shaped files.
         self.regfile_shapes = regfile_shapes or {}
@@ -180,9 +199,8 @@ class BehaviorIR:
                 if name not in self.register_map and name != "pc" and name not in self.var_widths and name not in self.MEM_KEYWORDS:
                     self.temporaries[name] = (32, "_inline_")
                     self.var_widths[name] = 32
-            if isinstance(node, (ast.Assign, ast.AugAssign)):
-                targets = node.targets if isinstance(node, ast.Assign) else [node.target]
-                for target in targets:
+            if isinstance(node, ast.Assign):
+                for target in node.targets:
                     # Element-indexed write to a shaped register (`vd[i] = …`): mark the
                     # base register as written (its file is helper-only in QEMU, an
                     # output operand in LLVM).
@@ -212,9 +230,6 @@ class BehaviorIR:
                 return True  # a top-level trap()/trap_return() redirects control
             if isinstance(stmt, ast.Assign):
                 if any(isinstance(t, ast.Name) and t.id == "pc" for t in stmt.targets):
-                    return True
-            if isinstance(stmt, ast.AugAssign):
-                if isinstance(stmt.target, ast.Name) and stmt.target.id == "pc":
                     return True
         return False
 
@@ -307,5 +322,84 @@ class BehaviorIR:
         if isinstance(node, ast.BoolOp): return 1
         if isinstance(node, ast.UnaryOp): return self.get_width(node.operand)
         raise ValueError(f"Cannot determine bit-width of expression '{ast.unparse(node)}'")
+
+
+def validate_ir(ir: BehaviorIR) -> None:
+    """Backend-agnostic structural checks for a parsed behavior.
+
+    Run by the loader on every instruction so malformed behaviors fail at parse
+    time with a clear message, regardless of which generation targets are used.
+    Backend-specific limits (e.g. QEMU's host-type ceilings) stay in each
+    backend's own pre-flight; this only rejects what *no* backend can lower:
+    unsupported statement forms, width-mismatched assignments, unknown CSR
+    fields, and malformed trap() arguments. Raises ValueError.
+    """
+    for stmt in ir.tree.body:
+        _validate_stmt(ir, stmt)
+
+
+def _validate_stmt(ir: BehaviorIR, node: ast.stmt) -> None:
+    if isinstance(node, ast.If):
+        for s in node.body:
+            _validate_stmt(ir, s)
+        for s in node.orelse:
+            _validate_stmt(ir, s)
+        return
+    if isinstance(node, ast.For):
+        if not (isinstance(node.iter, ast.Call) and isinstance(node.iter.func, ast.Name)
+                and node.iter.func.id == "range"):
+            raise ValueError("only 'for i in range(...)' loops are supported")
+        for s in node.body:
+            _validate_stmt(ir, s)
+        return
+    if isinstance(node, ast.Expr):
+        v = node.value
+        if (isinstance(v, ast.Call) and isinstance(v.func, ast.Name)
+                and v.func.id == "trap"):
+            arg = v.args[0] if v.args else None
+            if not isinstance(arg, (ast.Constant, ast.Name)):
+                raise ValueError("trap() expects an integer or a declared cause name")
+        return
+    if isinstance(node, ast.Assign):
+        target = node.targets[0]
+        if ir.reg_element_access(target) is not None:
+            return  # element/sub-array writes are shape-checked by the backends
+        if ir.reg_attr_access(target) is not None:
+            return
+        csr_w = BehaviorIR.csr_ref(target)
+        if csr_w is not None:
+            csr_name, field = csr_w
+            if csr_name not in ir.csrs:
+                raise ValueError(f"behavior references unknown CSR 'csr.{csr_name}'")
+            if field is not None:
+                ir._get_field_info(csr_name, field)  # raises if no such field
+            return
+        if (isinstance(target, ast.Subscript) and isinstance(target.value, ast.Name)
+                and target.value.id in BehaviorIR.MEM_KEYWORDS):
+            mem_width = BehaviorIR.MEM_KEYWORDS[target.value.id]
+            vw = ir.get_width(node.value)
+            if mem_width != vw and not (isinstance(node.value, ast.Constant) and vw <= mem_width):
+                raise ValueError(
+                    f"Width mismatch: cannot write '{ast.unparse(node.value)}' ({vw} bits) "
+                    f"into {target.value.id}[...] ({mem_width}-bit slot)"
+                )
+            return
+        if isinstance(target, ast.Name):
+            tw = ir.get_width(target)
+            vw = ir.get_width(node.value)
+            # A top-level sext/zext/signed adapts to the target's width, so it
+            # can't be a width mismatch. Constants may be narrower than the target.
+            adaptive = (isinstance(node.value, ast.Call)
+                        and isinstance(node.value.func, ast.Name)
+                        and node.value.func.id in ("sext", "zext", "signed"))
+            if tw != vw and not adaptive \
+                    and not (isinstance(node.value, ast.Constant) and vw <= tw):
+                raise ValueError(
+                    f"Width mismatch: '{ast.unparse(target)}' is {tw} bits but "
+                    f"'{ast.unparse(node.value)}' evaluates to {vw} bits"
+                )
+            return
+        raise ValueError(f"unsupported assignment target '{ast.unparse(target)}'")
+    raise ValueError(f"unsupported statement '{ast.unparse(node)}'")
 
 

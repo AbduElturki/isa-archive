@@ -77,7 +77,7 @@ which file and function fires, in order, for `isa-archive generate -i isa.yaml -
 ```mermaid
 flowchart TB
     A["<b>cli.py</b> · generate()"] --> B["<b>loader.py</b> · load_isa()<br/><i>load_manifest (kind→model) · ISARegistry · resolve extends/includes</i>"]
-    B --> V["<b>loader.py</b> · ISARegistry.validate()<br/><i>per instruction: BehaviorIR(…) + QemuCBackend(ir).translate()<br/>+ decoder-collision / field / enum / CSR checks</i>"]
+    B --> V["<b>loader.py</b> · ISARegistry.validate()<br/><i>per instruction: BehaviorIR(…) + validate_ir(ir)<br/>+ decoder-collision / field / enum / CSR checks</i>"]
     V --> D["<b>targets.py</b> · run_target(name)<br/><i>_TARGETS[name] lambda (+ components= for a sub-target)</i>"]
     D --> G["a generator entry<br/><i>qemu/core._write_isa_files · cpp_isa.generate_cpp_isa · llvm/core.generate_llvm · …</i>"]
     G --> C["build the template ctx<br/><i>consult the registry; lower behaviors via compiler/backends/*</i>"]
@@ -92,10 +92,11 @@ flowchart TB
    choices themselves come from `targets.TARGET_NAMES`.
 2. **`loader.py` · `load_isa()`** reads the YAML docs, maps each `kind:` to a Pydantic model
    (`load_manifest`), builds the `ISARegistry`, resolves `extends:`/`includes:`, then runs
-   **`ISARegistry.validate()`** - which constructs a `BehaviorIR` for every instruction and lowers
-   it through `QemuCBackend(ir).translate()` to prove it's well-formed, alongside the structural
-   checks (decoder collisions, field bounds, enum refs, CSR addresses). Validation happens **once**,
-   before any target runs.
+   **`ISARegistry.validate()`** - which constructs a `BehaviorIR` for every instruction and runs
+   the backend-agnostic `validate_ir(ir)` (statement forms, width mismatches, CSR fields) over it,
+   alongside the structural checks (decoder collisions, field bounds, enum refs, CSR addresses).
+   Backend-specific limits are checked later by each backend's own pre-flight (e.g. QEMU's
+   `_validate_for_qemu`). Validation happens **once**, before any target runs.
 3. **`targets.py` · `run_target(name)`** looks `name` up in the `_TARGETS` dispatch table and calls
    its lambda, which invokes the matching generator - passing a `components={…}` filter for
    sub-targets (`qemu-isa`, `llvm-tablegen`, `docs-html`, …).

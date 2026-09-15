@@ -29,6 +29,7 @@ def generate_verilog(registry: Registry, output_dir: str, clang_format: bool = F
 
     # Generate for each ISA
     for isa_reg in registry.isas.values():
+        isa_reg.activate_scalar_types()
         # Generate Operands
         template_op = env.get_template("sv/operands.sv.j2")
         output_op = template_op.render(operands=isa_reg.operands)
@@ -37,6 +38,7 @@ def generate_verilog(registry: Registry, output_dir: str, clang_format: bool = F
     # Generate for each uArch
     for uarch_reg in registry.uarches.values():
         isa_reg = uarch_reg.isa
+        isa_reg.activate_scalar_types()
 
         # Generate Blocks
         template_block = env.get_template("sv/block.sv.j2")

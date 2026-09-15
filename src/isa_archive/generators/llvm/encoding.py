@@ -180,23 +180,12 @@ def _encode_instr_as_nop(opcode_name: str, instr_defs: list, schemas: dict,
     if schema is None:
         return None
 
+    # OPCODE/CONSTANT bits from the shared resolver (which logs anything it
+    # cannot resolve); REGISTER, IMMEDIATE, RESERVED stay 0.
+    from ...compiler.utils import compute_fixed_fields
     word = 0
-    for field in schema.spec.fields:
-        if field.role == FieldRole.OPCODE:
-            try:
-                val = int(isa_reg._resolve_value(instr.spec.opcode))
-                word |= (val & ((1 << field.width) - 1)) << field.start
-            except Exception:
-                pass
-        elif field.role == FieldRole.CONSTANT:
-            const_val = instr.spec.constants.get(field.name)
-            if const_val is not None:
-                try:
-                    val = int(isa_reg._resolve_value(const_val))
-                    word |= (val & ((1 << field.width) - 1)) << field.start
-                except Exception:
-                    pass
-        # REGISTER, IMMEDIATE, RESERVED → 0
+    for field, val in compute_fixed_fields(instr, schema, isa_reg):
+        word |= (val & ((1 << field.width) - 1)) << field.start
 
     nbytes = schema_len // 8
     try:

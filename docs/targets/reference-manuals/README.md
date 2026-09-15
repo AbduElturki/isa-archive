@@ -23,7 +23,7 @@ One file per requested `--format` (`md` is the default; `-f all` writes all thre
 |---|---|
 | `{isa}_reference.md` | Markdown manual |
 | `{isa}_reference.html` | styled, standalone HTML manual |
-| `{isa}_reference.pdf` | print-ready PDF (rendered from the HTML via WeasyPrint) |
+| `{isa}_reference.pdf` | print-ready PDF (rendered from the HTML via WeasyPrint; needs the optional extra `pip install 'isa-archive[pdf]'`) |
 
 Each is the same human-readable architecture manual, generated from the same manifests as the
 toolchain:

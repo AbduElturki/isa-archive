@@ -434,6 +434,7 @@ def generate_llvm(registry: Registry, output_dir: str, strict: bool = False,
     env = make_jinja_env()
 
     for isa_reg in registry.isas.values():
+        isa_reg.activate_scalar_types()
         xlen = isa_reg.xlen
         isa_name = isa_reg.name
         ISA = isa_ident(isa_name)

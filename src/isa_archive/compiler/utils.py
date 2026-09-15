@@ -1,6 +1,9 @@
 import ast as _ast
+import logging as _logging
 import re as _re
 from typing import TYPE_CHECKING
+
+_logger = _logging.getLogger("isa_archive.compiler")
 
 if TYPE_CHECKING:
     from .loader import ISARegistry
@@ -72,15 +75,21 @@ def compute_fixed_fields(instr: "Instruction", schema: "Schema",
         elif f.role == FieldRole.OPCODE:
             try:
                 out.append((f, isa_reg._resolve_value(instr.spec.opcode)))
-            except Exception:
-                pass
+            except Exception as e:
+                _logger.warning(
+                    "instruction '%s': cannot resolve opcode %r (%s); field '%s' "
+                    "omitted from the fixed encoding",
+                    instr.metadata.name, instr.spec.opcode, e, f.name)
         elif f.role == FieldRole.CONSTANT:
             cv = instr.spec.constants.get(f.name)
             if cv is not None:
                 try:
                     out.append((f, isa_reg._resolve_value(cv)))
-                except Exception:
-                    pass
+                except Exception as e:
+                    _logger.warning(
+                        "instruction '%s': cannot resolve constant field '%s' value "
+                        "%r (%s); omitted from the fixed encoding",
+                        instr.metadata.name, f.name, cv, e)
     return out
 
 
@@ -235,10 +244,15 @@ def _c_expr(node, prefix: str) -> str:
         return f"!({_c_expr(node.operand, prefix)})"
     if isinstance(node, _ast.Compare):
         _cmp = {"Eq": "==", "NotEq": "!=", "Lt": "<", "LtE": "<=", "Gt": ">", "GtE": ">="}
-        result = _c_expr(node.left, prefix)
+        # Python chained comparisons (a < b < c) mean (a < b) and (b < c); C would
+        # parse the same text as ((a < b) < c), so expand them pairwise.
+        parts = []
+        left = node.left
         for op, comp in zip(node.ops, node.comparators):
-            result += f" {_cmp[type(op).__name__]} {_c_expr(comp, prefix)}"
-        return result
+            parts.append(f"{_c_expr(left, prefix)} {_cmp[type(op).__name__]} "
+                         f"{_c_expr(comp, prefix)}")
+            left = comp
+        return parts[0] if len(parts) == 1 else " && ".join(f"({p})" for p in parts)
     if isinstance(node, _ast.BinOp):
         _bin = {"Add": "+", "Sub": "-", "Mult": "*", "Div": "/", "Mod": "%",
                 "BitAnd": "&", "BitOr": "|", "BitXor": "^", "LShift": "<<", "RShift": ">>"}

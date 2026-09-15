@@ -102,6 +102,7 @@ def generate_cpp_isa(registry: Registry, output_dir: str, clang_format: bool = F
     write_generated(root / ".clang-format", CLANG_FORMAT_LLVM)
 
     for isa_reg in registry.isas.values():
+        isa_reg.activate_scalar_types()
         isa_name = isa_reg.name
         ns = _ident(isa_name)            # namespace (lowercase): npu_probe
         cls = _pascal(isa_name)          # header file prefix (PascalCase): NpuProbe

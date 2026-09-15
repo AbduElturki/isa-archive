@@ -381,12 +381,6 @@ class QemuCBackend(_BackendBase):
                             f"    {target_name} = {value_code};\n}}")
             return f"{target_name} = {value_code};"
 
-        if isinstance(node, ast.AugAssign):
-            target_name = self._translate(node.target, env_prefix)
-            value_code = self._translate(node.value, env_prefix)
-            op = BehaviorIR.OPERATORS.get(type(node.op))
-            return f"{target_name} {op}= {value_code};"
-
         if isinstance(node, ast.Subscript):
             if isinstance(node.value, ast.Name) and node.value.id in BehaviorIR.MEM_KEYWORDS:
                 mem_width = BehaviorIR.MEM_KEYWORDS[node.value.id]

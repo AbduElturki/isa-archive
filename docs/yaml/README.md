@@ -92,6 +92,8 @@ spec:
 ```
 
 The extension gets the base's registers, schemas, constants, and
-instructions, then layers on its own. Generate from the extension's
-`isa.yaml` and you get the combined ISA.
+instructions, then layers on its own. When both define the same name,
+the extension's definition wins, so an extension can also redefine a
+base instruction. Generate from the extension's `isa.yaml` and you get
+the combined ISA.
 [Tutorial part 4](../../examples/tutorial/pico32-part4/README.md) builds one.

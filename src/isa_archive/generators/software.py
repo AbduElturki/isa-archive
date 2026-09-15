@@ -215,6 +215,7 @@ def generate_software(registry: Registry, output_dir: str, lang: SoftwareLang,
     template_csr = env.get_template(f"sw/csrs.{extension}.j2")
 
     for isa_reg in registry.isas.values():
+        isa_reg.activate_scalar_types()
         ISA_upper = isa_ident(isa_reg.name)
         instr_defs = dict(_build_instr_defs(isa_reg, ISA_upper))
 

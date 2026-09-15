@@ -9,11 +9,9 @@ import yaml
 from .compiler.loader import load_directory, load_isa, load_uarch, load_project, Registry
 from .generators import targets as _targets
 
-# Root logger handler - level is adjusted per command via _setup_logging
-_handler = logging.StreamHandler()
-_handler.setFormatter(logging.Formatter("%(message)s"))
-logging.getLogger().addHandler(_handler)
-logging.getLogger().setLevel(logging.INFO)
+# Root logger handler, attached lazily by _setup_logging so that importing this
+# module (e.g. using isa_archive as a library) never mutates global logging state.
+_handler: "logging.StreamHandler | None" = None
 
 app = typer.Typer(help="ISA Archive: Modern ISA & Hardware Generator CLI")
 
@@ -32,23 +30,38 @@ class DocFormat(str, Enum):
 
 
 def _setup_logging(verbose: bool, quiet: bool) -> None:
+    global _handler
+    root = logging.getLogger()
+    if _handler is None:
+        _handler = logging.StreamHandler()
+        _handler.setFormatter(logging.Formatter("%(message)s"))
+        root.addHandler(_handler)
     if quiet:
-        logging.getLogger().setLevel(logging.ERROR)
+        root.setLevel(logging.ERROR)
     elif verbose:
-        logging.getLogger().setLevel(logging.DEBUG)
+        root.setLevel(logging.DEBUG)
         _handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
+    else:
+        root.setLevel(logging.INFO)
 
 
-def _peek_kind(path: pathlib.Path) -> "str | None":
-    """Read just the first YAML document's `kind` (for detecting a Project file)."""
+def _fail(e: Exception) -> "typer.Exit":
+    """Report a command failure; with --verbose the full traceback is shown."""
+    if logging.getLogger().isEnabledFor(logging.DEBUG):
+        import traceback
+        traceback.print_exc()
+    typer.echo(f"Error: {e}", err=True)
+    return typer.Exit(code=1)
+
+
+def _is_project_file(path: pathlib.Path) -> bool:
+    """True if any YAML document in the file is a `kind: Project` manifest."""
     try:
         with open(path) as f:
-            for doc in yaml.safe_load_all(f):
-                if doc:
-                    return doc.get("kind")
+            return any(isinstance(doc, dict) and doc.get("kind") == "Project"
+                       for doc in yaml.safe_load_all(f))
     except Exception:
-        return None
-    return None
+        return False
 
 
 def _validate_targets(project) -> None:
@@ -72,7 +85,7 @@ def parse(
     try:
         p = pathlib.Path(path)
         registry = Registry()
-        if p.is_file() and _peek_kind(p) == "Project":
+        if p.is_file() and _is_project_file(p):
             registry, project, _, _ = load_project(path)
             _validate_targets(project)
             typer.echo(f"Validated project [{project.metadata.name}] ({path})")
@@ -110,8 +123,7 @@ def parse(
     except typer.Exit:
         raise
     except Exception as e:
-        typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(code=1)
+        raise _fail(e)
 
 
 @app.command()
@@ -149,8 +161,7 @@ def generate(
             _targets.run_target(name, registry, output, clang_format=fmt,
                                  strict=strict, doc_format=doc_format.value)
     except Exception as e:
-        typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(code=1)
+        raise _fail(e)
 
 
 @app.command()
@@ -187,8 +198,7 @@ def build(
                                 doc_format=entry.format or "md")
             typer.echo(f"  generated {entry.target:<14} {entry.output}")
     except Exception as e:
-        typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(code=1)
+        raise _fail(e)
 
 
 @app.command()
