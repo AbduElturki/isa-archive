@@ -42,12 +42,6 @@ class RustBackend(_BackendBase):
             value_code = self._translate(node.value)
             return f"{target_name} = {value_code};"
 
-        if isinstance(node, ast.AugAssign):
-            target_name = self._translate(node.target)
-            value_code = self._translate(node.value)
-            op = BehaviorIR.OPERATORS.get(type(node.op))
-            return f"{target_name} {op}= {value_code};"
-
         if isinstance(node, ast.Subscript):
             var = self._translate(node.value)
             if isinstance(node.slice, ast.Slice):

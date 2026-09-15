@@ -11,7 +11,9 @@ from ..models.behavior_func import BehaviorFunc
 from ..models.machine import MachineLayout
 from ..models.enums import FieldRole
 from ..models import scalar_types
-from .utils import build_reg_maps, instruction_pattern
+from .behavior import BehaviorIR, validate_ir
+from .utils import (build_reg_maps, instruction_pattern, csr_map,
+                    build_regfile_shapes, build_regfile_attrs)
 
 MAX_YAML_BYTES = 10 * 1024 * 1024  # 10 MB
 
@@ -38,23 +40,44 @@ class ISARegistry:
 
     def add(self, manifest: ManifestBase, source_file: str = "") -> None:
         name = manifest.metadata.name
+        kind_to_dict = {
+            Operand: self.operands, Schema: self.schemas,
+            Instruction: self.instructions, Constant: self.constants,
+            EnumDef: self.enums, ScalarTypeDef: self.scalar_types,
+            BehaviorFunc: self.behavior_funcs,
+        }
+        target = next((d for cls, d in kind_to_dict.items()
+                       if isinstance(manifest, cls)), None)
+        if target is None:
+            _loader_logger.warning(
+                "ISA '%s': ignoring unsupported document kind '%s' (%s)%s",
+                self.name, manifest.kind, name,
+                f" [{source_file}]" if source_file else "")
+            return
+        if name in target:
+            _loader_logger.warning(
+                "ISA '%s': %s '%s' is defined more than once; the definition from "
+                "%s replaces the one from %s",
+                self.name, manifest.kind, name,
+                source_file or "<unknown>", self._source_files.get(name, "<unknown>"))
         if source_file:
             self._source_files[name] = source_file
-        if isinstance(manifest, Operand):
-            self.operands[name] = manifest
-        elif isinstance(manifest, Schema):
-            self.schemas[name] = manifest
-        elif isinstance(manifest, Instruction):
-            self.instructions[name] = manifest
-        elif isinstance(manifest, Constant):
-            self.constants[name] = manifest
-        elif isinstance(manifest, EnumDef):
-            self.enums[name] = manifest
-        elif isinstance(manifest, ScalarTypeDef):
-            self.scalar_types[name] = manifest
+        target[name] = manifest
+        if isinstance(manifest, ScalarTypeDef):
             scalar_types.register_from_manifest(manifest)  # visible to resolve() at once
-        elif isinstance(manifest, BehaviorFunc):
-            self.behavior_funcs[name] = manifest
+
+    def activate_scalar_types(self) -> None:
+        """Make this ISA's declared scalar types the process-wide registered set.
+
+        The scalar-type registry is global (``resolve()`` is called from model
+        properties with no ISA context), so when several ISAs live in one
+        process each consumer activates the ISA it is working on first - the
+        loader before validation, every generator at the top of its per-ISA
+        loop. This keeps one ISA's ``kind: ScalarType`` definitions from
+        leaking into another's."""
+        scalar_types.clear_registered()
+        for st in self.scalar_types.values():
+            scalar_types.register_from_manifest(st)
 
     @property
     def display_name(self) -> str:
@@ -77,6 +100,9 @@ class ISARegistry:
         raise ValueError(f"Could not resolve: {value}")
 
     def validate(self):
+        """Validate the assembled ISA. Also runs one documented normalization
+        pass (:meth:`_resolve_fixed_fields`): named opcode/constant values are
+        resolved to ints in place on the manifests. Idempotent."""
         self._validate_register_types()
         self._validate_constraint_syntax()
         self._validate_enum_refs()
@@ -170,9 +196,10 @@ class ISARegistry:
         seen: dict[int, str] = {}
         for csr in self.arch_csrs:
             if csr.address in seen:
+                # CSRs are declared inline in the ISA spec, so point at the ISA file.
                 raise ValueError(
                     f"CSR Address Collision: '{csr.name}' and '{seen[csr.address]}' both use address {hex(csr.address)}"
-                    f"{self._src(csr.name)}"
+                    f"{self._src(self.name)}"
                 )
             seen[csr.address] = csr.name
 
@@ -287,76 +314,87 @@ class ISARegistry:
             if color[f] == WHITE:
                 _dfs(f)
 
-    def _validate_instructions(self) -> dict:
+    def _resolve_fixed_fields(self, instr: Instruction, schema: Schema,
+                              schema_fields: dict) -> None:
+        """Normalization pass: resolve an instruction's fixed-field values
+        (opcode + constants, possibly named constants or enum members) to plain
+        ints, **in place** on the manifest. Idempotent - already-int values pass
+        through unchanged, so re-validating is safe. Every downstream consumer
+        (pattern building, assembler, TableGen fixed fields) relies on this
+        having run. Also enforces that each resolved value fits its field."""
         logger = logging.getLogger("isa_archive.validator")
-        arch_state_names = (
-            {r.name for r in self.registers}
-            | {alias for r in self.registers for alias in r.aliases.keys()}
-            | {c.name for c in self.arch_csrs}
-        )
-        arch_state_names.add("pc")
+        fixed_fields = {f.name for f in schema.spec.fields if f.role in (FieldRole.OPCODE, FieldRole.CONSTANT)}
+        instr_fixed = {"opcode": instr.spec.opcode}
+        instr_fixed.update(instr.spec.constants)
+
+        missing = fixed_fields - set(instr_fixed.keys())
+        if missing:
+            raise ValueError(
+                f"Instruction '{instr.metadata.name}' is missing values for fixed fields: {missing}"
+                f"{self._src(instr.metadata.name)}"
+            )
+
+        resolved: dict[str, int] = {}
+        for field_name, field_value in instr_fixed.items():
+            if field_name not in schema_fields:
+                raise ValueError(
+                    f"Instruction '{instr.metadata.name}' sets unknown field '{field_name}'"
+                    f"{self._src(instr.metadata.name)}"
+                )
+            field = schema_fields[field_name]
+            if field.role not in (FieldRole.OPCODE, FieldRole.CONSTANT):
+                raise ValueError(
+                    f"Instruction '{instr.metadata.name}' fixed entry '{field_name}' must be a "
+                    f"role='opcode' or role='constant' field{self._src(instr.metadata.name)}"
+                )
+            if field.enum_ref is not None and isinstance(field_value, str) and "." in field_value:
+                used_enum = field_value.split(".", 1)[0]
+                if used_enum != field.enum_ref:
+                    logger.warning(
+                        f"Instruction '{instr.metadata.name}' field '{field_name}' uses enum '{used_enum}' "
+                        f"but schema declares enum '{field.enum_ref}'"
+                    )
+            value = self._resolve_value(field_value)
+            if value < 0 or value >= (1 << field.width):
+                raise ValueError(
+                    f"Instruction '{instr.metadata.name}' field '{field_name}' value "
+                    f"{value:#x} does not fit in the field's {field.width} bit(s)"
+                    f"{self._src(instr.metadata.name)}"
+                )
+            resolved[field_name] = value
+
+        instr.spec.opcode = resolved.pop("opcode")
+        instr.spec.constants.update(resolved)
+
+    def _validate_instructions(self) -> dict:
+        alias_names = {alias for r in self.registers for alias in r.aliases}
+        csr_names = {c.name for c in self.arch_csrs}
+        regfile_names = {r.name for r in self.registers}
 
         instr_patterns: dict[str, str] = {}
 
         for instr in self.instructions.values():
+            name = instr.metadata.name
             schema = self.schemas.get(instr.spec.schema_name)
             if not schema:
                 raise ValueError(
-                    f"Instruction '{instr.metadata.name}' references unknown schema '{instr.spec.schema_name}'"
-                    f"{self._src(instr.metadata.name)}"
+                    f"Instruction '{name}' references unknown schema '{instr.spec.schema_name}'"
+                    f"{self._src(name)}"
                 )
 
             schema_fields = {f.name: f for f in schema.spec.fields}
 
             if not any(f.role == FieldRole.OPCODE for f in schema.spec.fields):
                 raise ValueError(
-                    f"Schema '{schema.metadata.name}' used by instruction '{instr.metadata.name}' "
+                    f"Schema '{schema.metadata.name}' used by instruction '{name}' "
                     f"has no field with role='opcode' - every schema must have at least one opcode field"
                     f"{self._src(schema.metadata.name)}"
                 )
 
-            fixed_fields = {f.name for f in schema.spec.fields if f.role in (FieldRole.OPCODE, FieldRole.CONSTANT)}
-            instr_fixed = {"opcode": instr.spec.opcode}
-            instr_fixed.update(instr.spec.constants)
+            self._resolve_fixed_fields(instr, schema, schema_fields)
 
-            missing = fixed_fields - set(instr_fixed.keys())
-            if missing:
-                raise ValueError(
-                    f"Instruction '{instr.metadata.name}' is missing values for fixed fields: {missing}"
-                    f"{self._src(instr.metadata.name)}"
-                )
+            instr_patterns[name] = instruction_pattern(instr, schema)
 
-            resolved: dict[str, int] = {}
-            for field_name, field_value in instr_fixed.items():
-                if field_name not in schema_fields:
-                    raise ValueError(
-                        f"Instruction '{instr.metadata.name}' sets unknown field '{field_name}'"
-                        f"{self._src(instr.metadata.name)}"
-                    )
-                field = schema_fields[field_name]
-                if field.role not in (FieldRole.OPCODE, FieldRole.CONSTANT):
-                    raise ValueError(
-                        f"Instruction '{instr.metadata.name}' fixed entry '{field_name}' must be a "
-                        f"role='opcode' or role='constant' field{self._src(instr.metadata.name)}"
-                    )
-                if field.enum_ref is not None and isinstance(field_value, str) and "." in field_value:
-                    used_enum = field_value.split(".", 1)[0]
-                    if used_enum != field.enum_ref:
-                        logger.warning(
-                            f"Instruction '{instr.metadata.name}' field '{field_name}' uses enum '{used_enum}' "
-                            f"but schema declares enum '{field.enum_ref}'"
-                        )
-                resolved[field_name] = self._resolve_value(field_value)
-
-            instr.spec.opcode = resolved.pop("opcode")
-            instr.spec.constants.update(resolved)
-
-            instr_patterns[instr.metadata.name] = instruction_pattern(instr, schema)
-
-            from .behavior import BehaviorIR
-            from .backends import QemuCBackend
-            from .utils import (csr_map, build_csr_info, build_trap_info,
-                                 build_regfile_shapes, build_regfile_attrs)
             reg_map, var_widths = build_reg_maps(schema, self)
             try:
                 ir = BehaviorIR(
@@ -369,32 +407,52 @@ class ISARegistry:
                     regfile_attrs=build_regfile_attrs(self),
                     behavior_funcs=self.behavior_funcs,
                 )
-                for w in ir.inline_warnings:
-                    logging.getLogger("isa_archive.validator").warning(
-                        f"Instruction '{instr.metadata.name}': {w}")
-                self._validate_sys_usage(instr, ir)
-                if ir.unknown_reg_attrs:
-                    rg, at = sorted(ir.unknown_reg_attrs)[0]
+            except ValueError as e:
+                raise ValueError(f"Instruction '{name}' has invalid behavior: {e}"
+                                 f"{self._src(name)}")
+            for w in ir.inline_warnings:
+                logging.getLogger("isa_archive.validator").warning(
+                    f"Instruction '{name}': {w}")
+            self._validate_sys_usage(instr, ir)
+            if ir.unknown_reg_attrs:
+                rg, at = sorted(ir.unknown_reg_attrs)[0]
+                raise ValueError(
+                    f"Instruction '{name}' accesses '{rg}.{at}', but "
+                    f"register file '{reg_map.get(rg, rg)}' declares no attribute "
+                    f"'{at}'{self._src(name)}")
+            # Variable hygiene first, so a misused name gets its targeted message
+            # instead of a width error from the structural checks below.
+            for var in ir.used_vars:
+                if var == "pc" or var in schema_fields or var in ir.temporaries:
+                    continue
+                if var in self.constants or var in self.enums or var in self.operands:
+                    continue
+                if var in alias_names:
                     raise ValueError(
-                        f"Instruction '{instr.metadata.name}' accesses '{rg}.{at}', but "
-                        f"register file '{reg_map.get(rg, rg)}' declares no attribute "
-                        f"'{at}'{self._src(instr.metadata.name)}")
-                QemuCBackend(ir).translate(csr_info=build_csr_info(self),
-                                           trap_info=build_trap_info(self),
-                                           regfile_shapes=build_regfile_shapes(self),
-                                           regfile_attrs=build_regfile_attrs(self))
-                for var in ir.used_vars:
-                    if var in schema_fields: continue
-                    if var in arch_state_names: continue
-                    if var in self.constants or var in self.enums: continue
-                    if var in self.operands: continue
-                    if var in ir.temporaries: continue
-                    raise ValueError(
-                        f"Instruction '{instr.metadata.name}' behavior uses unknown variable '{var}'"
-                        f"{self._src(instr.metadata.name)}"
+                        f"Instruction '{name}' behavior references register alias "
+                        f"'{var}'; aliases name fixed registers for the ABI and "
+                        f"assembler only - use a schema field with role: register "
+                        f"instead{self._src(name)}"
                     )
-            except SyntaxError as e:
-                raise ValueError(f"Instruction {instr.metadata.name} has invalid behavior syntax: {e}")
+                if var in csr_names:
+                    raise ValueError(
+                        f"Instruction '{name}' behavior references CSR '{var}' as a "
+                        f"bare name; use 'csr.{var}'{self._src(name)}"
+                    )
+                if var in regfile_names:
+                    raise ValueError(
+                        f"Instruction '{name}' behavior references register file "
+                        f"'{var}' directly; registers are accessed through schema "
+                        f"fields with role: register{self._src(name)}"
+                    )
+                raise ValueError(
+                    f"Instruction '{name}' behavior uses unknown variable '{var}'"
+                    f"{self._src(name)}"
+                )
+            try:
+                validate_ir(ir)
+            except ValueError as e:
+                raise ValueError(f"Instruction '{name}': {e}{self._src(name)}")
 
         return instr_patterns
 
@@ -462,6 +520,16 @@ class uArchRegistry:
         # Micro-architectural state
         self.custom_csrs = manifest.spec.state.csrs
 
+    def add(self, manifest: ManifestBase) -> None:
+        """uArch state (CSRs, blocks) lives inline in the uArch spec; there is no
+        semantics yet for standalone documents alongside a uArch, so anything a
+        uArch file (or its `includes:` globs) pulls in is skipped with a warning
+        rather than crashing the load."""
+        _loader_logger.warning(
+            "uArch '%s': ignoring document kind '%s' (%s) - uArch manifests carry "
+            "their state inline in spec:, standalone documents are not supported",
+            self.name, manifest.kind, manifest.metadata.name)
+
 class Registry:
     def __init__(self):
         self.isas: Dict[str, ISARegistry] = {}
@@ -482,9 +550,15 @@ def load_manifest(data: Dict[str, Any]) -> ManifestBase:
     if kind not in mapping: raise ValueError(f"Unknown kind: {kind}")
     return mapping[kind](**data)
 
-def load_isa(isa_path: str, global_registry: Optional[Registry] = None) -> ISARegistry:
+def load_isa(isa_path: str, global_registry: Optional[Registry] = None,
+             _extends_chain: Optional[List[str]] = None) -> ISARegistry:
     if global_registry is None: global_registry = Registry()
     path = pathlib.Path(isa_path).resolve()
+    _extends_chain = list(_extends_chain or [])
+    if str(path) in _extends_chain:
+        raise ValueError(
+            "Circular extends: " + " -> ".join(_extends_chain + [str(path)]))
+    _extends_chain.append(str(path))
     if path.stat().st_size > MAX_YAML_BYTES:
         raise ValueError(f"Manifest file {path} exceeds size limit ({MAX_YAML_BYTES} bytes)")
     with open(path, 'r') as f:
@@ -498,18 +572,31 @@ def load_isa(isa_path: str, global_registry: Optional[Registry] = None) -> ISARe
         else: other_manifests.append(manifest)
     if not isa_manifest: raise ValueError(f"No ISA in {isa_path}")
     isa_reg = ISARegistry(isa_manifest)
+    isa_reg._source_files[isa_reg.name] = str(path)
     global_registry.isas[isa_reg.name] = isa_reg
     for m in other_manifests: isa_reg.add(m, source_file=str(path))
+    for pattern in isa_manifest.spec.includes:
+        for matched_path in path.parent.glob(pattern):
+            if matched_path.resolve() == path: continue
+            if matched_path.stat().st_size > MAX_YAML_BYTES:
+                raise ValueError(f"Manifest file {matched_path} exceeds size limit ({MAX_YAML_BYTES} bytes)")
+            with open(matched_path, 'r') as f:
+                for doc in yaml.safe_load_all(f):
+                    if doc: isa_reg.add(load_manifest(doc), source_file=str(matched_path))
     if isa_manifest.spec.extends:
         base_isa_path = (path.parent / isa_manifest.spec.extends).resolve()
-        base_isa_reg = load_isa(str(base_isa_path), global_registry)
-        isa_reg.operands.update(base_isa_reg.operands)
-        isa_reg.schemas.update(base_isa_reg.schemas)
-        isa_reg.instructions.update(base_isa_reg.instructions)
-        isa_reg.constants.update(base_isa_reg.constants)
-        isa_reg.enums.update(base_isa_reg.enums)
-        isa_reg.behavior_funcs.update(base_isa_reg.behavior_funcs)
-        isa_reg._source_files.update(base_isa_reg._source_files)
+        base_isa_reg = load_isa(str(base_isa_path), global_registry, _extends_chain)
+        # The base's content is merged *under* the extension: a name defined by
+        # the extension (inline or via includes:) overrides the base's, so an
+        # extension can redefine a base instruction/schema/operand.
+        isa_reg.operands = {**base_isa_reg.operands, **isa_reg.operands}
+        isa_reg.schemas = {**base_isa_reg.schemas, **isa_reg.schemas}
+        isa_reg.instructions = {**base_isa_reg.instructions, **isa_reg.instructions}
+        isa_reg.constants = {**base_isa_reg.constants, **isa_reg.constants}
+        isa_reg.enums = {**base_isa_reg.enums, **isa_reg.enums}
+        isa_reg.scalar_types = {**base_isa_reg.scalar_types, **isa_reg.scalar_types}
+        isa_reg.behavior_funcs = {**base_isa_reg.behavior_funcs, **isa_reg.behavior_funcs}
+        isa_reg._source_files = {**base_isa_reg._source_files, **isa_reg._source_files}
         if not isa_reg.registers:
             isa_reg.registers = base_isa_reg.registers
         if not isa_reg.arch_csrs:
@@ -529,14 +616,7 @@ def load_isa(isa_path: str, global_registry: Optional[Registry] = None) -> ISARe
         isa_reg.xlen = spec.xlen
         isa_reg.machine = spec.machine if spec.machine is not None else isa_reg.machine
         isa_reg.trap = spec.trap
-    for pattern in isa_manifest.spec.includes:
-        for matched_path in path.parent.glob(pattern):
-            if matched_path.resolve() == path: continue
-            if matched_path.stat().st_size > MAX_YAML_BYTES:
-                raise ValueError(f"Manifest file {matched_path} exceeds size limit ({MAX_YAML_BYTES} bytes)")
-            with open(matched_path, 'r') as f:
-                for doc in yaml.safe_load_all(f):
-                    if doc: isa_reg.add(load_manifest(doc), source_file=str(matched_path))
+    isa_reg.activate_scalar_types()
     isa_reg.validate()
     return isa_reg
 
@@ -553,7 +633,14 @@ def load_uarch(uarch_path: str, global_registry: Registry) -> uArchRegistry:
         m = load_manifest(doc)
         if isinstance(m, uArch): uarch_manifest = m
         else: other_manifests.append(m)
-    uarch_reg = uArchRegistry(uarch_manifest, global_registry.isas[uarch_manifest.spec.isa])
+    if uarch_manifest is None:
+        raise ValueError(f"No uArch manifest in {uarch_path}")
+    isa_name = uarch_manifest.spec.isa
+    if isa_name not in global_registry.isas:
+        raise ValueError(
+            f"uArch '{uarch_manifest.metadata.name}' targets ISA '{isa_name}', which is "
+            f"not loaded (known: {', '.join(sorted(global_registry.isas)) or 'none'})")
+    uarch_reg = uArchRegistry(uarch_manifest, global_registry.isas[isa_name])
     global_registry.uarches[uarch_reg.name] = uarch_reg
     for m in other_manifests: uarch_reg.add(m)
     for pattern in uarch_manifest.spec.includes:
@@ -586,19 +673,22 @@ def load_directory(directory: str) -> Registry:
 
     for yaml_file in sorted(dir_path.glob("*.yaml")):
         if yaml_file.stat().st_size > MAX_YAML_BYTES:
+            _loader_logger.warning("skipping %s: exceeds size limit (%d bytes)",
+                                   yaml_file, MAX_YAML_BYTES)
             continue
         try:
             with open(yaml_file, "r") as f:
-                for doc in yaml.safe_load_all(f):
-                    if not doc:
-                        continue
-                    kind = doc.get("kind")
-                    if kind == "ISA":
-                        isa_paths.append(str(yaml_file))
-                    elif kind == "uArch":
-                        uarch_paths.append(str(yaml_file))
-                    break
-        except Exception:
+                # Scan every document: a file is an ISA/uArch root wherever the
+                # root manifest sits in it, not only when it is the first doc.
+                kinds = {doc.get("kind") for doc in yaml.safe_load_all(f)
+                         if isinstance(doc, dict)}
+            if "ISA" in kinds:
+                isa_paths.append(str(yaml_file))
+            elif "uArch" in kinds:
+                uarch_paths.append(str(yaml_file))
+        except Exception as e:
+            _loader_logger.warning("skipping %s: cannot scan for manifests (%s)",
+                                   yaml_file, e)
             continue
 
     if not isa_paths:

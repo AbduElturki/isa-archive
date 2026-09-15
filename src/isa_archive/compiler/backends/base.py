@@ -13,10 +13,16 @@ class _BackendBase:
         if isinstance(node, ast.Expr):
             return self._translate(node.value, state_prefix)
         if isinstance(node, ast.Compare):
-            left = self._translate(node.left, state_prefix)
-            op = BehaviorIR.CMP_OPS.get(type(node.ops[0]))
-            right = self._translate(node.comparators[0], state_prefix)
-            return f"({left} {op} {right})"
+            # Chained comparisons (a < b < c) mean (a < b) && (b < c) in Python;
+            # emitted pairwise so the target language doesn't reinterpret them.
+            parts = []
+            left = node.left
+            for op_node, comp in zip(node.ops, node.comparators):
+                op = BehaviorIR.CMP_OPS.get(type(op_node))
+                parts.append(f"({self._translate(left, state_prefix)} {op} "
+                             f"{self._translate(comp, state_prefix)})")
+                left = comp
+            return parts[0] if len(parts) == 1 else "(" + " && ".join(parts) + ")"
         if isinstance(node, ast.BoolOp):
             op = BehaviorIR.BOOL_OPS.get(type(node.op))
             values = [self._translate(v, state_prefix) for v in node.values]

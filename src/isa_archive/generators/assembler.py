@@ -181,6 +181,7 @@ def generate_asm(registry: Registry, output_dir: str):
     out_path = prepare_output_dir(output_dir)
 
     for isa_reg in registry.isas.values():
+        isa_reg.activate_scalar_types()
         instr_infos = []
         for instr in isa_reg.instructions.values():
             schema = isa_reg.schemas.get(instr.spec.schema_name)

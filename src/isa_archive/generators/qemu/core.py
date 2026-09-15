@@ -99,6 +99,7 @@ def generate_qemu_isa(registry: Registry, output_dir: str, clang_format: bool = 
     out_path = prepare_output_dir(output_dir)
     write_generated(out_path / ".clang-format", CLANG_FORMAT_QEMU)
     for isa_reg in registry.isas.values():
+        isa_reg.activate_scalar_types()
         _write_isa_files(env, isa_reg, out_path, clang_format=clang_format)
     logger.info(f"Generated QEMU ISA artifacts in {output_dir}")
 
@@ -123,6 +124,7 @@ def generate_qemu(registry: Registry, output_dir: str, clang_format: bool = Fals
     env = _make_qemu_env()
 
     for isa_reg in registry.isas.values():
+        isa_reg.activate_scalar_types()
         _validate_for_qemu(isa_reg)
         xlen = isa_reg.xlen
         word = _guest_word(isa_reg)
