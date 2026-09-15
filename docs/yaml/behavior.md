@@ -38,6 +38,10 @@ Two rules with teeth:
   mark the value signed: `rd = signed(rs1) >> rs2[0:5]`.
 - Comparisons are **unsigned** unless an operand is wrapped:
   `if signed(rs1) < signed(rs2): …` is the signed compare.
+- `/` and `%` follow the same rule: unsigned by default, signed (truncating
+  toward zero, remainder takes the dividend's sign - C semantics) when an
+  operand is wrapped: `rd = signed(rs1) / signed(rs2)`. Python's `//` is
+  rejected.
 
 ## Built-ins
 

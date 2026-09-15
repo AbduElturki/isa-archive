@@ -331,11 +331,36 @@ def validate_ir(ir: BehaviorIR) -> None:
     time with a clear message, regardless of which generation targets are used.
     Backend-specific limits (e.g. QEMU's host-type ceilings) stay in each
     backend's own pre-flight; this only rejects what *no* backend can lower:
-    unsupported statement forms, width-mismatched assignments, unknown CSR
-    fields, and malformed trap() arguments. Raises ValueError.
+    unsupported operators and statement forms, width-mismatched assignments,
+    unknown CSR fields, and malformed trap() arguments. Raises ValueError.
     """
+    _validate_operators(ir)
     for stmt in ir.tree.body:
         _validate_stmt(ir, stmt)
+
+
+# Python operators the DSL deliberately does not define. `//` is the common
+# trap: Python's floor division has no C/Verilog counterpart, and the DSL's `/`
+# already follows operand signedness (see docs/yaml/behavior.md).
+_REJECTED_OPS = {
+    ast.FloorDiv: "'//' is not a DSL operator; use '/' (signed when an operand "
+                  "is wrapped in signed(), unsigned otherwise)",
+    ast.Pow: "'**' is not a DSL operator",
+    ast.MatMult: "'@' is not a DSL operator",
+}
+
+
+def _validate_operators(ir: BehaviorIR) -> None:
+    for node in ast.walk(ir.tree):
+        if isinstance(node, ast.BinOp):
+            op = type(node.op)
+            if op in _REJECTED_OPS:
+                raise ValueError(f"{_REJECTED_OPS[op]} (in '{ast.unparse(node)}')")
+            if op not in BehaviorIR.OPERATORS:
+                raise ValueError(f"unsupported operator in '{ast.unparse(node)}'")
+        elif isinstance(node, ast.UnaryOp) and not isinstance(
+                node.op, (ast.Invert, ast.Not, ast.USub)):
+            raise ValueError(f"unsupported operator in '{ast.unparse(node)}'")
 
 
 def _validate_stmt(ir: BehaviorIR, node: ast.stmt) -> None:

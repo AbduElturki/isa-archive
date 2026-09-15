@@ -33,8 +33,10 @@ _ARITH_BINOP_TO_DAG = {
     (ArithClass.INT, ast.LShift):   "shl",
     (ArithClass.INT, ast.RShift):   "srl",   # logical; signed right-shift mapped separately
     (ArithClass.INT, ast.Mult):     "mul",
-    (ArithClass.INT, ast.FloorDiv): "sdiv",
-    (ArithClass.INT, ast.Mod):      "srem",
+    # `/` and `%` follow operand signedness like `>>`: unsigned unless an
+    # operand is signed()-wrapped, in which case they become sdiv/srem below.
+    (ArithClass.INT, ast.Div):      "udiv",
+    (ArithClass.INT, ast.Mod):      "urem",
     (ArithClass.IEEE_FLOAT, ast.Add):  "fadd",
     (ArithClass.IEEE_FLOAT, ast.Sub):  "fsub",
     (ArithClass.IEEE_FLOAT, ast.Mult): "fmul",
@@ -383,6 +385,11 @@ class LLVMDagBackend:
                 # Arithmetic vs logical right shift: signed(rs1) >> x → sra.
                 if isinstance(inner.op, ast.RShift) and self._is_signed_wrapped(inner.left):
                     dag_op = "sra"
+                # Signed division / remainder: signed(rs1) / signed(rs2) → sdiv.
+                if (isinstance(inner.op, (ast.Div, ast.Mod)) and not dest_is_float
+                        and (self._is_signed_wrapped(inner.left)
+                             or self._is_signed_wrapped(inner.right))):
+                    dag_op = "sdiv" if isinstance(inner.op, ast.Div) else "srem"
                 left = self._node(inner.left)
                 right = self._node(inner.right)
                 # A usable ALU pattern has a register left operand (rd = rs1 OP x).
