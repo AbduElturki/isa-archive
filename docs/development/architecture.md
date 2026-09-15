@@ -37,6 +37,7 @@ flowchart TB
 | **Loader** | `compiler/loader.py` | `load_manifest` maps `kind:` → model; `load_isa`/`load_uarch`/`load_project` build the `Registry`; `extends`/`includes` are resolved here. `ISARegistry.validate()` runs the validation passes. |
 | **Behavior IR** | `compiler/behavior.py` | `BehaviorIR` parses a `behavior:` string to a Python AST and analyzes it: used/read/written vars, bit-width inference (`get_width`), and recognizers for the DSL's namespaces (`csr_ref`, `reg_element_access`, `reg_attr_access`, trap builtins) plus flags (`modifies_pc`, `uses_sys`, `uses_structured`). |
 | **Backends** | `compiler/backends/` | Lower the *same* `BehaviorIR` to each language: `qemu_c` / `qemu_tcg` (C / TCG), `verilog`, `rust`, `llvm_dag` (SelectionDAG patterns). `base._BackendBase` holds the shared expression lowering. |
+| **Interpreter** | `compiler/interp.py` | Executes `BehaviorIR` directly on a Python `MachineState` (registers, CSRs, attributes, memory, PC) with the C backend's semantics - the reference every backend is compared against, and what `isa-archive run` drives. `Interpreter.decode` matches instruction words against the schema patterns the decoders use. |
 | **Generators** | `generators/` | Per target: consult the registry, lower behaviors via the backends, and render Jinja templates. `base.py` provides `make_jinja_env` / `make_renderer` / `write_generated`. `targets.py` is the dispatch taxonomy (`_TARGETS`, `PARENTS`, `ALL_TARGETS`, `run_target`), shared by both `generate -t` and `build`. |
 | **Templates** | `generators/templates/` | One Jinja directory per backend (`qemu`, `llvm`, `sv`, `sw`, `asm`, `cpp_isa`, `docs`) + shared `_macros.j2`. |
 
@@ -108,6 +109,11 @@ flowchart TB
    `env.get_template(...).render(**ctx)`) and writes it through `write_generated`, which runs
    `normalize_generated` (trailing-whitespace/blank-line cleanup, single final newline) and
    optionally `clang-format`.
+
+`isa-archive run <program> -i isa.yaml` stops at step 2 as well, then hands the validated
+registry to `compiler/interp.py`: `Interpreter(isa_reg)` builds one `BehaviorIR` per
+instruction (exactly as the generators do), `MachineState.for_isa` allocates the
+architectural state, and `run_program` fetches, decodes and executes until a device halts.
 
 `isa-archive build <project.yaml>` is the same chain with a different front: `load_project` loads
 every ISA/uArch the [`Project`](../yaml/project.md) references, then calls `run_target` once per

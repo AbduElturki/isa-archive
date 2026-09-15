@@ -202,6 +202,48 @@ def build(
 
 
 @app.command()
+def run(
+    program: str = typer.Argument(..., help="Program image: an ELF (from the generated assembler's --elf or the generated clang) or a flat binary"),
+    isa: str = typer.Option(..., "--isa", "-i", help="Path to the ISA manifest"),
+    base: str = typer.Option(None, "--base", help="Load address for a flat binary (hex; default: the machine's reset vector)"),
+    steps: int = typer.Option(1_000_000, "--steps", help="Maximum instructions to execute"),
+    trace: bool = typer.Option(False, "--trace", help="Print every executed instruction"),
+    dump: bool = typer.Option(False, "--dump", help="Print the registers and CSRs when the run ends"),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable debug logging"),
+    quiet: bool = typer.Option(False, "--quiet", "-q", help="Suppress info output"),
+):
+    """Run a program on the reference interpreter - the ISA's behaviors executed
+    directly from the manifest, no generated backend needed. The machine's
+    ns16550 prints to stdout and its sifive_test device ends the run."""
+    from .compiler.interp import (Interpreter, MachineState, attach_machine_devices,
+                                  format_registers, load_image, run_program)
+    _setup_logging(verbose, quiet)
+    try:
+        registry = Registry()
+        isa_reg = load_isa(isa, registry)
+        interp = Interpreter(isa_reg)
+        st = MachineState.for_isa(isa_reg)
+        attach_machine_devices(st, isa_reg)
+        data = pathlib.Path(program).read_bytes()
+        st.pc = load_image(st, data, int(base, 16) if base else None)
+
+        def _trace(pc, name, s):
+            typer.echo(f"{pc:#010x}  {name}", err=True)
+
+        code = run_program(interp, st, max_steps=steps, trace=_trace if trace else None)
+        if dump:
+            typer.echo(format_registers(st, isa_reg), err=True)
+        if code < 0:
+            typer.echo(f"Stopped after {steps} instructions (no halt); pc={st.pc:#x}", err=True)
+            raise typer.Exit(code=2)
+        raise typer.Exit(code=code)
+    except typer.Exit:
+        raise
+    except Exception as e:
+        raise _fail(e)
+
+
+@app.command()
 def init(
     name: str = typer.Argument(..., help="ISA name (e.g. 'my-cpu')"),
     xlen: int = typer.Option(32, "--xlen", help="Word width in bits (e.g. 32 or 64)"),

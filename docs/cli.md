@@ -1,12 +1,13 @@
 # CLI reference
 
-The tool has four commands:
+The tool has five commands:
 
 ```
 isa-archive init      Scaffold a new ISA project with a working example
 isa-archive parse     Parse and validate manifests without generating output
 isa-archive generate  Generate artifacts from manifests
 isa-archive build     Generate everything a Project manifest configures, into its paths
+isa-archive run       Run a program on the reference interpreter (no generated backend needed)
 ```
 
 `generate -t <target>` accepts parent targets and sub-targets alike
@@ -114,6 +115,48 @@ flowchart LR
 | `docs` | `{isa}_reference.md` / `.html` / `.pdf` | [Reference manuals](targets/reference-manuals/README.md) |
 | `docs-md` · `docs-html` · `docs-pdf` | Sub-targets: a single documentation format (the parent `docs` honors `--format`) | [Reference manuals](targets/reference-manuals/README.md) |
 | `all` | verilog, llvm, c, rust, docs, and qemu-isa in one run | |
+
+## `isa-archive run`
+
+```sh
+isa-archive run PROGRAM --isa FILE [--base HEX] [--steps N] [--trace] [--dump]
+```
+
+Executes a program on the **reference interpreter**: the ISA's `behavior:`
+definitions run directly from the manifest, with the same semantics the
+generated QEMU helpers implement (unsigned-by-default arithmetic, C integer
+promotion and wrap-around, `signed()` opting into signed shifts / compares /
+division, signed immediate fields sign-extended). Nothing is generated or
+built, so it's the quickest way to try an instruction, and it's the oracle the
+generated backends are checked against.
+
+| Flag | Meaning |
+|---|---|
+| `PROGRAM` | an ELF (from the generated assembler's `--elf`, or the generated `clang`) or a flat binary |
+| `--isa`, `-i` | the ISA manifest |
+| `--base` | load address for a flat binary (default: the machine's reset vector) |
+| `--steps` | instruction limit (default 1,000,000); exit code 2 if reached |
+| `--trace` | print `pc  INSTRUCTION` for every executed instruction (stderr) |
+| `--dump` | print registers and CSRs when the run ends (stderr) |
+
+The machine's [`machine.qemu.devices`](yaml/isa.md) are modelled minimally: an
+`ns16550` UART prints transmitted bytes to stdout, and a `sifive_test` device
+ends the run - `0x5555` exits 0, `0x3333` exits 1, `(code << 16) | 0x3333`
+exits with `code` - the same protocol the generated QEMU board uses, so one
+program runs unchanged on both.
+
+```
+$ python build/asm/pico32_asm.py hello.s -o hello.elf --elf
+$ isa-archive run hello.elf -i examples/tutorial/pico32-part4/isa.yaml --dump
+H
+pc = 0x80000024
+r0  = 0x00000000  r1  = 0x10000000  r2  = 0x0000000a  r3  = 0x00100000
+…
+```
+
+Not modelled: `Operand`-struct constructors in behaviors, interrupts, and
+timing. Anything the interpreter can't run raises an error naming the
+construct.
 
 ### How errors behave
 

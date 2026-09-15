@@ -69,6 +69,15 @@ jobs:
       - name: Generate C intrinsics for the NPU probe
         run: uv run isa-archive generate -i examples/npu-probe/isa.yaml -t c -o build/smoke-npu
 
+      # Assemble the tutorial's first program with the generated assembler and run
+      # it on the reference interpreter: it must print "H" and halt with status 0.
+      - name: Run hello.s on the reference interpreter
+        run: |
+          uv run isa-archive generate -i examples/tutorial/pico32-part1/isa.yaml -t asm -o build/smoke-asm
+          uv run python build/smoke-asm/pico32_asm.py examples/tutorial/pico32-part1/programs/hello.s -o build/hello.elf --elf
+          uv run isa-archive run build/hello.elf -i examples/tutorial/pico32-part1/isa.yaml --dump | tee run.out
+          grep -q '^H$' run.out
+
   qemu-build:
     name: qemu build + run (pico32)
     runs-on: ubuntu-latest

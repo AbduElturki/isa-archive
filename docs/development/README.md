@@ -26,6 +26,9 @@ Every change should hold these - they're what keeps the generators consistent:
 - **One source of truth for semantics.** An instruction's behavior is the single `behavior:`
   string. Every backend *derives* its output by analyzing that one definition
   ([`BehaviorIR`](../yaml/behavior.md)) - never hand-write per-target semantics.
+- **The interpreter is the oracle.** `compiler/interp.py` defines what a behavior *means*
+  (signedness, promotion, wrap-around, immediates, PC advance). A backend that disagrees with
+  it is wrong; a DSL change lands in the interpreter and its tests first, then in each backend.
 - **Nothing is hardcoded.** Register names (`rd`, `sp`, …), opcodes, and ABI roles come from the
   manifests via the `ISARegistry` and the `register_map`.
 - **Schema-driven decode.** Look up an instruction's `Schema` to know which fields are opcodes vs.

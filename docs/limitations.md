@@ -40,6 +40,18 @@ pico32 are checked only at the source level by the test suite.
   If generation succeeds, the semantics you wrote are the semantics you get, in every generator. See
   [the behavior DSL reference](yaml/behavior.md) for the full grammar.
 
+### Reference interpreter (`isa-archive run`)
+
+- Runs everything the DSL expresses except `Operand`-struct constructors (`MyOp(a, b)`
+  in a behavior), which raise a named error.
+- Devices are minimal models of `ns16550` / `sifive_test`; `irq_test` is accepted but
+  never raises an interrupt. No timing, no MMU, one flat address space.
+- The zero-register rule is applied per write (a write to the hardwired-zero index is
+  dropped); the generated QEMU helper skips the *whole* helper for a non-branch
+  instruction whose destination is the zero register, so a load with `rd = zero` is a
+  no-op there but still performs the memory read here. Only faults can tell the two
+  apart.
+
 ### Instruction encodings
 
 - One uniform instruction length per ISA. Mixing 16- and 32-bit encodings in one ISA fails

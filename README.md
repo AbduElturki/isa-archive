@@ -85,6 +85,9 @@ uv run isa-archive build examples/tutorial/pico32-part4/project.yaml
 
 # Scaffold a brand-new ISA to start from
 uv run isa-archive init my-cpu --xlen 32 --output-dir .
+
+# Run a program straight from the manifest on the reference interpreter - no QEMU build needed
+uv run isa-archive run prog.elf -i examples/tutorial/pico32-part4/isa.yaml --dump
 ```
 
 **New here?** The [**pico32 tutorial**](examples/tutorial/README.md) builds a 32-bit CPU from an
